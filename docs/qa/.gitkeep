@@ -1,0 +1,3 @@
+Permanent QA trail, one directory per feature:
+docs/qa/<feature>/LEDGER.md plus promoted gate reports.
+Wired as `paths.ledgers` in probe.config.yaml.

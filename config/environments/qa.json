@@ -1,0 +1,22 @@
+{
+  "name": "qa",
+  "baseUrl": "https://qa.yieldwerx.example",
+  "apiBaseUrl": "https://qa-api.yieldwerx.example",
+  "_comment": "TODO(env): replace .example placeholders with the real yieldWerx QA URLs",
+  "auth": {
+    "mock": false,
+    "roles": {
+      "admin": { "username": "", "password": "" },
+      "engineer": { "username": "", "password": "" },
+      "viewer": { "username": "", "password": "" }
+    }
+  },
+  "db": {
+    "mock": false,
+    "server": "",
+    "port": 1433,
+    "database": "",
+    "trustServerCertificate": false
+  },
+  "features": {}
+}

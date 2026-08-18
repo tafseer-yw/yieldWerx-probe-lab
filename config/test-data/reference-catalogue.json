@@ -1,0 +1,135 @@
+{
+  "$comment": "Reserved QA key-attribute catalogue. Authority: docs/test-data-catalogue.md. Grammar guard: tests/selftest/reference-catalogue.spec.ts. Every value here is pre-seeded reference data uploaded through the yieldWerx desktop STDF/ATDF dialog — it is NOT created at runtime.",
+  "reservedPrefix": "QA-",
+  "separator": "-",
+  "grammar": {
+    "facility": "^QA-FAB-[0-9]+$",
+    "workCenter": "^QA-WC-[A-Z]+-[0-9]+$",
+    "device": "^QA-DEV-[A-Z]{3}-[0-9]+$",
+    "testProgram": "^QA-PGM-[A-Z]{3}-[0-9]+$",
+    "lot": "^QA-LOT-[A-Z]{3}-[0-9]{2}$",
+    "wafer": "^[0-9]{1,2}$",
+    "parameter": "^QA-PARAM-[A-Z]{3}-[0-9]{2}$"
+  },
+  "shared": {
+    "$comment": "Facility and Work Center are NOT scope levels (spec Q-05 / OOS-12) — they are Data Selection UI fields, so they carry no feature code and are shared by every feature forever.",
+    "facility": ["QA-FAB-1", "QA-FAB-2"],
+    "workCenter": ["QA-WC-SORT-1", "QA-WC-FT-1"]
+  },
+  "featureCodes": {
+    "cluster-detection": "CLD",
+    "pat": "PAT",
+    "mvpat": "MVP",
+    "swm": "SWM",
+    "gdbn-sbyl": "GDB",
+    "spc": "SPC",
+    "clm": "CLM",
+    "amg": "AMG",
+    "genealogy": "GEN",
+    "reports-dashboards": "RPT",
+    "binning": "BIN",
+    "ingest": "ING"
+  },
+  "features": {
+    "cluster-detection": {
+      "code": "CLD",
+      "device": ["QA-DEV-CLD-1", "QA-DEV-CLD-2"],
+      "testProgram": ["QA-PGM-CLD-1", "QA-PGM-CLD-2"],
+      "lot": ["QA-LOT-CLD-01"],
+      "wafer": [1],
+      "parameter": []
+    }
+  },
+  "seedState": {
+    "$comment": "Observed 2026-08-04 by UI Recon against http://localhost:5173/ml-yield (API-verified via GET /common/scopeNodes). 'absent' values are DEFINED by this catalogue but NOT YET SEEDED — cases may reference them, but they cannot be executed until the upload is performed.",
+    "observedAt": "2026-08-04",
+    "environment": "http://localhost:5173/ml-yield",
+    "present": [
+      "QA-FAB-1",
+      "QA-WC-SORT-1",
+      "QA-DEV-CLD-1",
+      "QA-PGM-CLD-1",
+      "QA-LOT-CLD-01",
+      "wafer 1"
+    ],
+    "absent": ["QA-FAB-2", "QA-WC-FT-1", "QA-DEV-CLD-2", "QA-PGM-CLD-2", "wafers 2..25"],
+    "blocks": {
+      "TC-cluster-detection-080": "multi-value scope selection needs a second value at some level",
+      "engine-cases": "seeded wafer 1 carries exactly ONE hard-bin-5 die; adjacency cases need >= 3 adjacent bin-5 dies"
+    }
+  },
+  "seedingRunbook": {
+    "$comment": "One upload per row through the desktop 'View and Update Data File Key Attributes' dialog. Vary exactly ONE axis per row so a case can attribute a scope miss to a single field. Lot ID and Wafer ID are NOT retained by the dialog's reference checkbox — re-enter them per file.",
+    "rows": [
+      {
+        "purpose": "baseline",
+        "facility": "QA-FAB-1",
+        "workCenter": "QA-WC-SORT-1",
+        "device": "QA-DEV-CLD-1",
+        "testProgram": "QA-PGM-CLD-1",
+        "lot": "QA-LOT-CLD-01",
+        "wafer": 1
+      },
+      {
+        "purpose": "facility discriminator",
+        "facility": "QA-FAB-2",
+        "workCenter": "QA-WC-SORT-1",
+        "device": "QA-DEV-CLD-1",
+        "testProgram": "QA-PGM-CLD-1",
+        "lot": "QA-LOT-CLD-02",
+        "wafer": 1
+      },
+      {
+        "purpose": "work-center discriminator",
+        "facility": "QA-FAB-1",
+        "workCenter": "QA-WC-FT-1",
+        "device": "QA-DEV-CLD-1",
+        "testProgram": "QA-PGM-CLD-1",
+        "lot": "QA-LOT-CLD-03",
+        "wafer": 1
+      },
+      {
+        "purpose": "device discriminator",
+        "facility": "QA-FAB-1",
+        "workCenter": "QA-WC-SORT-1",
+        "device": "QA-DEV-CLD-2",
+        "testProgram": "QA-PGM-CLD-1",
+        "lot": "QA-LOT-CLD-04",
+        "wafer": 1
+      },
+      {
+        "purpose": "test-program discriminator",
+        "facility": "QA-FAB-1",
+        "workCenter": "QA-WC-SORT-1",
+        "device": "QA-DEV-CLD-1",
+        "testProgram": "QA-PGM-CLD-2",
+        "lot": "QA-LOT-CLD-05",
+        "wafer": 1
+      },
+      {
+        "purpose": "multi-wafer lot for Lot-level scope and aggregation",
+        "facility": "QA-FAB-1",
+        "workCenter": "QA-WC-SORT-1",
+        "device": "QA-DEV-CLD-1",
+        "testProgram": "QA-PGM-CLD-1",
+        "lot": "QA-LOT-CLD-90",
+        "wafer": "1..5, one upload each"
+      }
+    ]
+  },
+  "retired": {
+    "$comment": "Pre-catalogue literals. UI Recon 2026-08-04 confirmed none of these exist in the application any more. The grammar guard fails the build if any reappears in features/.",
+    "values": [
+      "FAB-1",
+      "FAB-2",
+      "PROBE-1",
+      "DEV-A",
+      "DEV-B",
+      "LOT-CD-001",
+      "LOT-CD-002",
+      "W01",
+      "W03",
+      "W07"
+    ]
+  }
+}

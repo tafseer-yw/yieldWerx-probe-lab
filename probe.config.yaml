@@ -1,0 +1,44 @@
+schemaVersion: 1
+probeVersion: 2.13.0
+profile: playwright-bdd
+
+# PROBE consumer config for the yieldWerx Playground repo. The PROBE plugin
+# (yw@yieldwerx, vendored at vendor/probe and registered in .claude/settings.json)
+# governs QA delivery; commands below delegate to this repo's npm scripts, which
+# (for build/dev) delegate into probe-lab-app/.
+
+paths:
+  requirements: docs/PRDs
+  features: features
+  ledgers: docs/qa
+  artifacts: .probe/artifacts
+  testData: test-data
+
+commands:
+  generateTests: npm run bddgen
+  lintCode: npm run lint
+  typecheck: npm run typecheck
+  runTests: npm run test
+  build: npm run app:build
+
+integrations:
+  browser:
+    provider: playwright-mcp
+  knowledge:
+    provider: yieldwerx-knowledgebase
+    required: false
+    source: claude-plugin
+    marketplace: yieldwerx-company
+    plugin: yieldwerx-knowledgebase
+    skill: ask-yieldwerx
+
+policies:
+  caseFormat: gherkin
+  caseLanguage: procedural
+  preserveManualTag: true
+  testIdRequired: true
+  wrongBusinessDataSeverity: blocker
+
+governance:
+  gates:
+    mode: active
