@@ -1,0 +1,62 @@
+{
+  "name": "yieldwerx-probe-lab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "yieldWerx PROBE Lab — hands-on PROBE practice for QA and Engineering",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "bddgen": "bddgen",
+    "test": "npm run test:app && bddgen && playwright test --project=chromium",
+    "test:app": "npm run test --prefix probe-lab-app",
+    "test:smoke": "bddgen && playwright test --grep @smoke --project=chromium",
+    "test:regression": "bddgen && playwright test --grep @regression --project=chromium",
+    "test:ui": "bddgen && playwright test --ui",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "allure:generate": "allure generate reports/allure-results --clean -o reports/allure-report",
+    "clean:reports": "rimraf reports test-results",
+    "open:lastreport": "npx playwright show-report reports/playwright-report",
+    "prepare": "husky",
+    "postinstall": "npm install --prefix probe-lab-app",
+    "app:dev": "cd probe-lab-app && npm start",
+    "app:build": "cd probe-lab-app && npm run build",
+    "update:playwright": "npm install -D @playwright/test@latest"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml,feature}": [
+      "prettier --write --ignore-unknown"
+    ]
+  },
+  "dependencies": {
+    "dotenv": "17.4.2",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.61.1",
+    "@types/node": "26.1.1",
+    "allure-commandline": "2.43.0",
+    "eslint": "10.7.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-import-resolver-typescript": "3.10.1",
+    "eslint-plugin-import-x": "4.17.1",
+    "husky": "9.1.7",
+    "lint-staged": "17.0.8",
+    "playwright-bdd": "9.2.0",
+    "prettier": "3.9.5",
+    "rimraf": "6.0.1",
+    "tsx": "4.23.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.64.0",
+    "yaml": "2.9.0"
+  }
+}

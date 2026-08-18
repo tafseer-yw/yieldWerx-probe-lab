@@ -1,0 +1,3 @@
+Requirement sources (PRDs / stories / specs) land here.
+Wired as `paths.requirements` in probe.config.yaml and as
+`requirement.prdPathTemplate` in config/aio-sync.json.

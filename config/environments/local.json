@@ -1,0 +1,19 @@
+{
+  "name": "local",
+  "baseUrl": "http://localhost:3000",
+  "apiBaseUrl": "http://localhost:5000",
+  "auth": {
+    "mock": true,
+    "roles": {
+      "admin": { "username": "admin", "password": "admin" },
+      "engineer": { "username": "engineer", "password": "engineer" },
+      "viewer": { "username": "viewer", "password": "viewer" }
+    }
+  },
+  "db": {
+    "mock": true
+  },
+  "features": {
+    "localViewer": true
+  }
+}

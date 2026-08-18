@@ -1,0 +1,76 @@
+# Dependencies
+node_modules/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+!.env.e2e.example
+
+# Auth/session state
+.auth/
+
+# Test output
+test-results/
+reports/
+playwright-report/
+blob-report/
+.playwright-mcp/
+allure-results/
+allure-report/
+coverage/
+.nyc_output/
+
+# Local Jenkins-in-Docker sandbox (docs/local-jenkins.md) — personal/local-only,
+# not shared via git. The `jenkins:*` npm scripts in package.json stay tracked.
+ci/local/
+
+# Transient PR-clean working copy
+.tmp-pr-clean/
+
+# PROBE working artifacts (gate reports are promoted to docs/qa/ and committed)
+.probe/
+
+# External requirement snapshots are design-time working inputs, not source.
+.requirements-cache/
+
+# Build
+dist/
+*.tsbuildinfo
+
+# Required framework source; override the monorepo's broad `data/` exclusion.
+!src/data/
+!src/data/**
+
+# playwright-bdd generated specs
+.features-gen/
+
+# Claude Code session-local settings (never shared)
+.claude/settings.local.json
+
+# This boilerplate intentionally delivers its Claude agents and skills.
+# Override the parent monorepo's broad `.claude/` and `CLAUDE.md` ignores.
+!.claude/
+!.claude/**
+.claude/settings.local.json
+!CLAUDE.md
+
+# Editor/OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# PROBE plugin has its own repository
+vendor/probe/
+
+# Local runtime and tooling output
+.npm-cache/
+.runtime/
+.playwright-mcp/
+.sift/artifacts/
+.probe/
