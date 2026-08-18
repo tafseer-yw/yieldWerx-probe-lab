@@ -3,7 +3,7 @@
  * Drives the four workflows through the UI — login → upload CSV → wafer map →
  * wafer triage → cluster detection → bin pareto — and checks the expected numbers
  * for the sample wafer (25 dies, 20 pass, 80% yield; one 5-die fail cluster;
- * failed bins HB2=4 and HB3=1). QA and Engineering extend this set as PROBE practice.
+ * failed bins HB2=4 and HB3=1). Dev and QA extend this set as PROBE practice.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -20,8 +20,8 @@ function sampleCsvWithUniqueLot(): Buffer {
   return Buffer.from(raw.replaceAll('LOT-DEMO-01', `LOT-E2E-${Date.now()}`));
 }
 
-Given('the engineer is signed in', async ({ page, config }) => {
-  const creds = credentialsFor(config, 'engineer');
+Given('the QA user is signed in', async ({ page, config }) => {
+  const creds = credentialsFor(config, 'qa');
   await page.goto('/login');
   await page.getByLabel('Username').fill(creds.username);
   await page.getByLabel('Password').fill(creds.password);
@@ -50,7 +50,7 @@ Given('the engineer is signed in', async ({ page, config }) => {
   await expect(systemStatus).toBeVisible();
 });
 
-When('the engineer uploads the sample wafer CSV', async ({ page }) => {
+When('the QA user uploads the sample wafer CSV', async ({ page }) => {
   await page.getByRole('link', { name: 'Upload data', exact: true }).click();
   await page.waitForURL('**/upload');
   await page.getByLabel('Device').selectOption('PROBE-DEV-1');
@@ -94,7 +94,7 @@ Then('the wafers list shows a wafer with yield {int}', async ({ page }, yieldPct
   ).toBeVisible({ timeout: 10_000 });
 });
 
-When('the engineer opens the most recent wafer', async ({ page }) => {
+When('the QA user opens the most recent wafer', async ({ page }) => {
   await page.getByRole('link', { name: 'Wafers', exact: true }).click();
   await page.waitForURL('**/wafers');
   await page.getByRole('row').nth(1).click();
@@ -114,7 +114,7 @@ Then('the wafer detail shows yield {int}', async ({ page }, yieldPct: number) =>
   expect(dieCounts).toEqual({ total: 25, passing: 20, failing: 5 });
 });
 
-When('the engineer opens wafer triage for this wafer', async ({ page }) => {
+When('the QA user opens wafer triage for this wafer', async ({ page }) => {
   const analysisNav = page.getByRole('navigation', { name: 'Analysis' });
   await expect(analysisNav.getByRole('link', { name: /Wafer triage/u })).toBeVisible();
   await page.getByRole('button', { name: 'Triage wafer' }).click();
@@ -167,7 +167,7 @@ Then('wafer triage reports no close match with supporting analytics', async ({ p
   await page.getByRole('button', { name: 'Close help' }).click();
 });
 
-When('the engineer notes the most recent wafer sequence', async ({ page, scenarioState }) => {
+When('the QA user notes the most recent wafer sequence', async ({ page, scenarioState }) => {
   await page.getByRole('link', { name: 'Wafers', exact: true }).click();
   await page.waitForURL('**/wafers');
   const cell = page.getByRole('row').nth(1).getByRole('cell').first();
@@ -177,7 +177,7 @@ When('the engineer notes the most recent wafer sequence', async ({ page, scenari
 });
 
 When(
-  'the engineer runs cluster detection with 4-way adjacency and minimum {int} connected dies',
+  'the QA user runs cluster detection with 4-way adjacency and minimum {int} connected dies',
   async ({ page, scenarioState }, minimum: number) => {
     const seq = scenarioState.get('waferSequence') as number;
     await page.getByRole('link', { name: 'Cluster detection', exact: true }).click();
@@ -219,7 +219,7 @@ Then('the cluster detection reports a cluster of {int} dies', async ({ page }, d
   expect(clusteredCoordinates).toEqual(['1,2', '2,1', '2,2', '2,3', '3,2']);
 });
 
-When('the engineer runs the bin pareto report for failed bins', async ({ page, scenarioState }) => {
+When('the QA user runs the bin pareto report for failed bins', async ({ page, scenarioState }) => {
   const seq = scenarioState.get('waferSequence') as number;
   await page.getByRole('link', { name: 'Bin pareto', exact: true }).click();
   await page.waitForURL('**/reports/bin-pareto');
@@ -244,30 +244,37 @@ Then('the bin pareto reports the failed bins', async ({ page }) => {
   await page.getByRole('button', { name: 'Close help' }).click();
 });
 
-When('the engineer opens the PROBE guide', async ({ page }) => {
+When('the QA user opens the PROBE guide', async ({ page }) => {
   await page.getByRole('link', { name: 'PROBE guide', exact: true }).click();
   await page.waitForURL('**/guide');
 });
 
-Then('the guide covers setup, plugins, the Dev track, and the QA track', async ({ page }) => {
-  await expect(page.getByRole('heading', { name: 'Get the lab running' })).toBeVisible();
+Then(
+  'the guide covers setup, the database, plugins, the Dev track, and the QA track',
+  async ({ page }) => {
+    await expect(page.getByRole('heading', { name: 'Get the lab running' })).toBeVisible();
 
-  await page.getByRole('button', { name: /Plugins/u }).click();
-  await expect(page.getByRole('link', { name: /Open GitHub repository/u })).toHaveCount(2);
+    await page.getByRole('button', { name: /Database/u }).click();
+    await expect(page.getByRole('heading', { name: 'The practice database' })).toBeVisible();
+    await expect(page.getByText('journal_mode = WAL')).toBeVisible();
 
-  await page.getByRole('button', { name: /Dev track/u }).click();
-  await expect(page.getByRole('heading', { name: 'Dev track', exact: true })).toBeVisible();
-  await expect(
-    page.getByText('/yw:build-feature <feature-slug> --requirement <path>'),
-  ).toBeVisible();
+    await page.getByRole('button', { name: /Plugins/u }).click();
+    await expect(page.getByRole('link', { name: /Open GitHub repository/u })).toHaveCount(2);
 
-  await page.getByRole('button', { name: /QA track/u }).click();
-  await expect(page.getByRole('heading', { name: 'QA track', exact: true })).toBeVisible();
-  await expect(page.getByText('/yw:probe-spec <feature-slug> <approved-spec>')).toBeVisible();
-});
+    await page.getByRole('button', { name: /Dev track/u }).click();
+    await expect(page.getByRole('heading', { name: 'Dev track', exact: true })).toBeVisible();
+    await expect(
+      page.getByText('/yw:build-feature <feature-slug> --requirement <path>'),
+    ).toBeVisible();
+
+    await page.getByRole('button', { name: /QA track/u }).click();
+    await expect(page.getByRole('heading', { name: 'QA track', exact: true })).toBeVisible();
+    await expect(page.getByText('/yw:probe-spec <feature-slug> <approved-spec>')).toBeVisible();
+  },
+);
 
 Then('sample wafers is an admin header action', async ({ page, config }) => {
-  await page.getByRole('button', { name: /engineer/u }).click();
+  await page.getByRole('button', { name: /qa/u }).click();
   await page.getByRole('menuitem', { name: 'Sign out' }).click();
   await page.waitForURL('**/login');
 
@@ -337,7 +344,7 @@ Then(
 Then('a viewer cannot open the upload workflow', async ({ page, config }) => {
   await page.getByTestId('nav-collapse').click();
   await expect(page.getByRole('button', { name: 'Expand navigation' })).toBeVisible();
-  await page.getByRole('button', { name: /engineer/u }).click();
+  await page.getByRole('button', { name: /qa/u }).click();
   await page.getByRole('menuitem', { name: 'Sign out' }).click();
   const viewer = credentialsFor(config, 'viewer');
   await page.getByLabel('Username').fill(viewer.username);

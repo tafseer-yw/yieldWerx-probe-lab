@@ -235,7 +235,7 @@ export function DashboardPage(): ReactElement {
             title="No wafers to analyze yet."
             hint={
               session?.user.role === 'viewer'
-                ? 'Ask an engineer or admin to upload a wafer CSV; its groups will appear here.'
+                ? 'Ask a dev, qa, or admin user to upload a wafer CSV; its groups will appear here.'
                 : 'Upload a wafer CSV — its groups of failing dies are then counted here.'
             }
           />
@@ -314,7 +314,7 @@ export function DashboardPage(): ReactElement {
       <Card>
         <CardHead
           title="Practice tracks"
-          subtitle="Choose an engineering practice track, then take the result through the PROBE loop: specify, codify, automate, attest, promote."
+          subtitle="Choose a practice track, then take the result through the PROBE loop: specify, codify, automate, attest, promote."
         />
         <CardBody>
           <div className="workflow-tiles">
@@ -366,7 +366,7 @@ export function DashboardPage(): ReactElement {
               title="No wafers yet."
               hint={
                 session?.user.role === 'viewer'
-                  ? 'Ask an engineer or admin to upload a wafer CSV.'
+                  ? 'Ask a dev, qa, or admin user to upload a wafer CSV.'
                   : 'Upload a wafer CSV and it will show up here with its yield.'
               }
               action={

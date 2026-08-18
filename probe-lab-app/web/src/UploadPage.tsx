@@ -89,7 +89,7 @@ export function UploadPage(): ReactElement {
       return;
     }
     if (mode === 'file' && !file) {
-      setError('Choose a CSV file.');
+      setError('Choose a CSV or ATDF file.');
       return;
     }
     if (mode === 'paste' && !csv.trim()) {
@@ -161,9 +161,9 @@ export function UploadPage(): ReactElement {
         <CardHead
           kicker="Step 2"
           title="Add the wafer data"
-          subtitle="Columns: Lot, Wafer, X, Y, HB#, SB#, PF_Flag — hard bin 0 or 1 is a pass."
+          subtitle="CSV columns: Lot, Wafer, X, Y, HB#, SB#, PF_Flag — hard bin 0 or 1 is a pass. An .atdf file carries its own lot, wafer, bins, and coordinates."
           help={help.csvFile}
-          helpTitle="Wafer CSV file"
+          helpTitle="Wafer file"
           actions={
             <div className="segmented" role="tablist" aria-label="Upload source">
               <button
@@ -213,14 +213,14 @@ export function UploadPage(): ReactElement {
                     <Icon name="upload" size={18} />
                   </span>
                   <span className="dropzone-title">
-                    Drop a .csv file here, or <em>browse</em>
+                    Drop a .csv or .atdf file here, or <em>browse</em>
                   </span>
                   <span className="muted">Up to 100 MB per file</span>
                   <input
                     type="file"
-                    accept=".csv,text/csv"
+                    accept=".csv,.atdf,text/csv,text/plain"
                     data-testid="csv-file"
-                    aria-label="Wafer CSV file"
+                    aria-label="Wafer CSV or ATDF file"
                     onChange={(event) => setFile(event.target.files?.[0] ?? undefined)}
                   />
                 </div>

@@ -5,6 +5,7 @@ import type {
   DetectedCluster,
   SignatureAdjacency,
 } from '../../shared/contracts.js';
+import { dieLattice, latticeColumn, latticeRow } from '../../shared/die-lattice.js';
 
 /*
  * Cluster detection — a trimmed port of the real "Cluster Size" detector
@@ -12,10 +13,23 @@ import type {
  * signature/rule/policy model; this practice version keeps the one detector
  * that QA can reason about: connected components of failing dies under 4- or
  * 8-way adjacency, filtered by a minimum connected-die threshold.
+ *
+ * Adjacency is walked in lattice indices, not raw coordinates. CLD-08 defines a
+ * connection as coordinates differing by "one step", and a step is the die pitch
+ * the wafer was recorded with — 1 in the CSV practice files, commonly 5 in a real
+ * ATDF. Stepping by a hardcoded 1 made physically touching dies on a wide-pitch
+ * wafer look isolated, so no cluster was ever found. Clusters still report the raw
+ * coordinates the file recorded; only the neighbour walk is in index space.
  */
 interface Coord {
   x: number;
   y: number;
+}
+
+/** A failing die held by both its lattice cell and the coordinates it recorded. */
+interface Cell extends Coord {
+  column: number;
+  row: number;
 }
 
 const neighborOffsets: Record<SignatureAdjacency, Array<[number, number]>> = {
@@ -46,28 +60,38 @@ export function detectClusters(
   dies: DieRecord[],
   options: ClusterDetectionOptions,
 ): ClusterDetectionResult {
+  // The pitch comes from every die on the wafer: the spacing of the failing ones
+  // says nothing about the grid they sit on.
+  const lattice = dieLattice(dies);
   const failDies = dies.filter((die) => die.passFailFlag === 'F');
-  const candidateKeys = new Set(failDies.map((die) => `${die.x}:${die.y}`));
   const offsets = neighborOffsets[options.adjacency];
+
+  /** Lattice cell → the raw coordinate recorded for the die in it. */
+  const candidates = new Map<string, Cell>();
+  for (const die of failDies) {
+    const column = latticeColumn(lattice, die.x);
+    const row = latticeRow(lattice, die.y);
+    candidates.set(`${column}:${row}`, { column, row, x: die.x, y: die.y });
+  }
+
   const visited = new Set<string>();
   const components: Coord[][] = [];
 
-  for (const die of failDies) {
-    const key = `${die.x}:${die.y}`;
+  for (const candidate of candidates.values()) {
+    const key = `${candidate.column}:${candidate.row}`;
     if (visited.has(key)) continue;
     const component: Coord[] = [];
-    const queue: Coord[] = [{ x: die.x, y: die.y }];
+    const queue: Cell[] = [candidate];
     visited.add(key);
     for (let queueIndex = 0; queueIndex < queue.length; queueIndex += 1) {
-      const current = queue[queueIndex] as Coord;
-      component.push(current);
+      const current = queue[queueIndex] as Cell;
+      component.push({ x: current.x, y: current.y });
       for (const [dx, dy] of offsets) {
-        const nx = current.x + dx;
-        const ny = current.y + dy;
-        const nkey = `${nx}:${ny}`;
-        if (candidateKeys.has(nkey) && !visited.has(nkey)) {
-          visited.add(nkey);
-          queue.push({ x: nx, y: ny });
+        const neighborKey = `${current.column + dx}:${current.row + dy}`;
+        const neighbor = candidates.get(neighborKey);
+        if (neighbor && !visited.has(neighborKey)) {
+          visited.add(neighborKey);
+          queue.push(neighbor);
         }
       }
     }

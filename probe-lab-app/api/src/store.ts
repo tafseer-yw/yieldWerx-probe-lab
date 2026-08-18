@@ -14,7 +14,7 @@ import {
   type WaferPage,
   type WaferSummary,
 } from '../../shared/contracts.js';
-import type { UploadParseResult, UploadValidationError, ParsedDie } from './wafer-csv.js';
+import type { UploadParseResult, UploadValidationError, ParsedDie } from './wafer-upload.js';
 
 /** A sample upload that is currently in the database. */
 export interface SampleUploadRow {
@@ -197,6 +197,31 @@ export class SqliteApplicationStore implements ApplicationStore {
     if (columns.length > 0 && !columns.some((column) => column.name === 'is_sample')) {
       this.db.exec('ALTER TABLE upload ADD COLUMN is_sample INTEGER NOT NULL DEFAULT 0');
     }
+    this.assertWaferRangesAreCurrent();
+  }
+
+  /**
+   * ATDF support widened wafer numbers past 25 and made die coordinates signed.
+   * SQLite cannot alter a CHECK constraint in place, so a database created under
+   * the old limits would reject valid wafer files with a confusing row error.
+   * The practice database is disposable, so refuse to open plainly rather than
+   * rebuild the tables underneath someone.
+   */
+  private assertWaferRangesAreCurrent(): void {
+    const stale = this.db
+      .prepare(
+        `SELECT name FROM sqlite_master
+         WHERE type = 'table' AND name IN ('die', 'wafer')
+           AND (sql LIKE '%BETWEEN 0 AND 99%' OR sql LIKE '%BETWEEN 1 AND 25%')
+         ORDER BY name`,
+      )
+      .all() as Array<{ name: string }>;
+    if (stale.length === 0) return;
+    throw new Error(
+      `Table${stale.length > 1 ? 's' : ''} ${stale.map((row) => row.name).join(' and ')} still ` +
+        'carry the pre-ATDF wafer and coordinate limits. Delete ' +
+        'data/practice-probe-db.sqlite* and run `npm run setup` to recreate the database.',
+    );
   }
 
   public async findUserByUsername(username: string): Promise<UserRecord | null> {
@@ -244,7 +269,27 @@ export class SqliteApplicationStore implements ApplicationStore {
     return row ? { deviceId: row.device_id, testProgramId: row.test_program_id } : null;
   }
 
+  /**
+   * A JWT names its user by id. When that row is gone — most often because the
+   * database was re-seeded while a token was still inside its eight-hour life —
+   * the insert would fail on the app_user foreign key and surface as a 500. Answer
+   * 401 instead, which the web client turns into a fresh sign-in.
+   */
+  private assertSubmitterExists(userId: string): void {
+    const row = this.db
+      .prepare('SELECT 1 AS present FROM app_user WHERE user_id = ?')
+      .get(userId) as { present: number } | undefined;
+    if (!row) {
+      throw apiError(
+        401,
+        'UNAUTHORIZED',
+        'Your session refers to a user that no longer exists. Sign in again.',
+      );
+    }
+  }
+
   public async saveUpload(input: SaveUploadInput): Promise<string> {
+    this.assertSubmitterExists(input.submittedByUserId);
     const reference = await this.findReference(input.deviceCode, input.testProgramCode);
     if (!reference) {
       throw apiError(
@@ -258,6 +303,7 @@ export class SqliteApplicationStore implements ApplicationStore {
   }
 
   public async saveUploadsAtomically(inputs: SaveUploadInput[]): Promise<string[]> {
+    for (const input of inputs) this.assertSubmitterExists(input.submittedByUserId);
     const references = await Promise.all(
       inputs.map((input) => this.findReference(input.deviceCode, input.testProgramCode)),
     );

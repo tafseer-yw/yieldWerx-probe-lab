@@ -2,7 +2,7 @@
   "name": "yieldwerx-probe-lab",
   "version": "0.1.0",
   "private": true,
-  "description": "yieldWerx PROBE Lab — hands-on PROBE practice for QA and Engineering",
+  "description": "yieldWerx PROBE Lab — hands-on PROBE practice for Dev and QA",
   "engines": {
     "node": ">=22.18"
   },

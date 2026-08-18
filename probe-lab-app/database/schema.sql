@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS app_user
     user_id      TEXT PRIMARY KEY,
     username     TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
-    role         TEXT NOT NULL CHECK (role IN ('viewer', 'engineer', 'admin')),
+    role         TEXT NOT NULL CHECK (role IN ('viewer', 'dev', 'qa', 'admin')),
     created_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS upload
     FOREIGN KEY (device_id) REFERENCES device(device_id),
     FOREIGN KEY (test_program_id) REFERENCES test_program(test_program_id),
     FOREIGN KEY (submitted_by_user_id) REFERENCES app_user(user_id),
-    CHECK (wafer_number IS NULL OR (wafer_number BETWEEN 1 AND 25)),
+    CHECK (wafer_number IS NULL OR (wafer_number BETWEEN 1 AND 9999)),
     CHECK (rows_read >= 0 AND rows_accepted >= 0 AND rows_rejected >= 0)
 );
 
@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS wafer
     finish_time      TEXT NOT NULL,
     UNIQUE (lot_id, wafer_number),
     UNIQUE (upload_id),
-    CHECK (wafer_number BETWEEN 1 AND 25),
+    CHECK (wafer_number BETWEEN 1 AND 9999),
     CHECK (part_count >= 0 AND pass_count >= 0 AND pass_count <= part_count),
     CHECK (yield >= 0 AND yield <= 100),
     FOREIGN KEY (lot_id) REFERENCES lot(lot_id),
@@ -121,8 +121,8 @@ CREATE TABLE IF NOT EXISTS die
     soft_bin_name   TEXT,
     pass_fail_flag  TEXT NOT NULL CHECK (pass_fail_flag IN ('P', 'F')),
     UNIQUE (wafer_sequence, x, y),
-    CHECK (x BETWEEN 0 AND 99),
-    CHECK (y BETWEEN 0 AND 99),
+    CHECK (x BETWEEN -32768 AND 32767),
+    CHECK (y BETWEEN -32768 AND 32767),
     CHECK (hard_bin >= 0),
     CHECK (soft_bin >= 0),
     FOREIGN KEY (wafer_sequence) REFERENCES wafer(wafer_sequence) ON DELETE CASCADE

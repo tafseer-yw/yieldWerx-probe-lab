@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "The yieldWerx PROBE Lab practice app for QA and Engineering workflows.",
+  "description": "The yieldWerx PROBE Lab practice app for Dev and QA workflows.",
   "engines": {
     "node": ">=22.18"
   },

@@ -87,9 +87,9 @@ export const help = {
     how: 'Paste the header line and the data rows, up to 5 MB. Same columns and same rules as a file.',
   },
   csvFile: {
-    what: 'The wafer result file, in CSV.',
+    what: 'The wafer result file, as CSV or ATDF.',
     why: 'This is the data that becomes a lot, a wafer, its dies and its yield. Rows that fail a check never land.',
-    how: 'Drop a .csv file here or click to browse. Columns: Lot, Wafer, X, Y, HB#, SB#, PF_Flag — hard bin 0 or 1 means pass.',
+    how: 'Drop a .csv or .atdf file here, or click to browse. A CSV needs the columns Lot, Wafer, X, Y, HB#, SB#, PF_Flag, where hard bin 0 or 1 means pass. An ATDF is read from its own MIR, WIR, HBR, SBR and PRR records, so it needs no columns.',
   },
   historyStatus: {
     what: 'Shows only uploads that ended in the status you pick.',

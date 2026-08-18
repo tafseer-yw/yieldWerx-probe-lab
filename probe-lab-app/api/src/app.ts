@@ -111,7 +111,9 @@ function polishOpenApiDocument(
   if (uploadOperation) {
     uploadOperation.requestBody = {
       required: true,
-      description: 'A wafer CSV file supplied as multipart form data or as a raw CSV body.',
+      description:
+        'A wafer file supplied as multipart form data — .csv or .atdf — or as a raw CSV body. ' +
+        'The format is chosen from the uploaded file extension; pasting accepts CSV only.',
       content: {
         'multipart/form-data': {
           schema: {
@@ -121,6 +123,7 @@ function polishOpenApiDocument(
           },
         },
         'text/csv': { schema: { type: 'string', format: 'binary' } },
+        'text/plain': { schema: { type: 'string', format: 'binary' } },
       },
     };
   }

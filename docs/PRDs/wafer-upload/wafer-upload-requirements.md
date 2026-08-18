@@ -77,7 +77,7 @@ Uploads attach to it; they never create it.
 Each device carries exactly one test program: `PROBE-PGM-1` is not offered under
 `PROBE-DEV-2`, and the reverse also holds. A mismatched pair is refused by UPL-05.
 
-Users: `viewer` / `viewer`, `engineer` / `engineer`, `admin` / `admin`. Lots, Wafers
+Users: `viewer` / `viewer`, `dev` / `dev`, `qa` / `qa`, `admin` / `admin`. Lots, Wafers
 and Dies are **created by upload**, never pre-seeded — including the optional
 **sample wafers** of section 6.8, which an admin loads and removes on demand and
 which are uploaded through the ordinary path rather than seeded.
@@ -93,9 +93,9 @@ LOT-DEMO-01,5,2,1,2,2,F
 | Column    | Type    | Rule                          |
 | --------- | ------- | ----------------------------- |
 | `Lot`     | text    | 1–32 characters               |
-| `Wafer`   | integer | 1–25                          |
-| `X`       | integer | 0–99                          |
-| `Y`       | integer | 0–99                          |
+| `Wafer`   | integer | 1–9999                        |
+| `X`       | integer | −32768–32767                  |
+| `Y`       | integer | −32768–32767                  |
 | `HB#`     | integer | 0 or greater                  |
 | `SB#`     | integer | 0 or greater                  |
 | `PF_Flag` | text    | `P` or `F`, case-insensitive  |
@@ -115,17 +115,19 @@ Bins `0` and `1` are passing bins. Every other hard bin is a failing bin.
 
 ### 6.1 Submitting an upload
 
-| ID         | Requirement                                                                                                                                                                                                                                                                                                                                                                                   |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **UPL-01** | The Upload screen offers two routes behind a `File` / `Paste CSV` tab pair: a drop zone that both accepts a dragged `.csv` file and opens the file picker when clicked, or a text area for pasted rows. All three gestures produce the same stored result. The drop zone marks its drag-over state while a file is held over it, and names the chosen file and its size once one is selected. |
-| **UPL-02** | **Device** and **Test program** are required. The program selector stays disabled until a device is chosen and clears when the device changes. Submitting without both shows `Choose a device and test program.`; the File tab with no file shows `Choose a CSV file.`; the Paste tab with an empty box shows `Paste CSV rows.`                                                               |
-| **UPL-03** | A submission returns `202` with `{ "uploadId": "<uuid>", "status": "Queued" }`. Parsing has **already finished** when that response arrives, so reading the upload immediately afterwards returns a terminal status.                                                                                                                                                                          |
-| **UPL-04** | Submitting needs the `engineer` role. A `viewer` receives `403` `FORBIDDEN` `Your role does not permit this operation.`; a caller with no or an invalid token receives `401` `UNAUTHORIZED` `Authentication is required.`                                                                                                                                                                     |
-| **UPL-05** | The named Device and Test program must be a pair that exists, or the submission is refused with `400` `INVALID_REFERENCE` `The selected Device and Test Program combination does not exist.`                                                                                                                                                                                                  |
-| **UPL-06** | On a multipart submission the file extension must be `.csv`, or it is refused with `400` `BAD_FILE_TYPE` `Only .csv files are accepted.` A multipart body carrying no file is refused with `400` `FILE_REQUIRED` `Choose a CSV file to upload.`                                                                                                                                               |
-| **UPL-07** | A multipart file larger than **100 MB** is refused with `413` `FILE_TOO_LARGE` `File is larger than the 100 MB file limit.`                                                                                                                                                                                                                                                                   |
-| **UPL-08** | A non-multipart submission must carry `Content-Type: text/csv`, or it is refused with `415` `UNSUPPORTED_MEDIA_TYPE` `Use multipart/form-data or text/csv.` A pasted body larger than **5 MB** is refused with `413` `FILE_TOO_LARGE` `File is larger than the 5 MB limit.` A pasted upload records the file name `pasted-wafer.csv`.                                                         |
-| **UPL-09** | A file with more than **50,000 data rows** lands as an upload in status `Rejected` with the message `File contains more than the 50,000 row limit.`                                                                                                                                                                                                                                           |
+| ID         | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **UPL-01** | The Upload screen offers two routes behind a `File` / `Paste CSV` tab pair: a drop zone that both accepts a dragged `.csv` or `.atdf` file and opens the file picker when clicked, or a text area for pasted rows. All three gestures produce the same stored result. The drop zone marks its drag-over state while a file is held over it, and names the chosen file and its size once one is selected.                     |
+| **UPL-02** | **Device** and **Test program** are required. The program selector stays disabled until a device is chosen and clears when the device changes. Submitting without both shows `Choose a device and test program.`; the File tab with no file shows `Choose a CSV or ATDF file.`; the Paste tab with an empty box shows `Paste CSV rows.`                                                                                      |
+| **UPL-03** | A submission returns `202` with `{ "uploadId": "<uuid>", "status": "Queued" }`. Parsing has **already finished** when that response arrives, so reading the upload immediately afterwards returns a terminal status.                                                                                                                                                                                                         |
+| **UPL-04** | Submitting needs the `dev` or `qa` role — they are peers at the same rank. A `viewer` receives `403` `FORBIDDEN` `Your role does not permit this operation.`; a caller with no or an invalid token receives `401` `UNAUTHORIZED` `Authentication is required.`                                                                                                                                                               |
+| **UPL-05** | The named Device and Test program must be a pair that exists, or the submission is refused with `400` `INVALID_REFERENCE` `The selected Device and Test Program combination does not exist.`                                                                                                                                                                                                                                 |
+| **UPL-06** | On a multipart submission the file extension must be `.csv` or `.atdf`, or it is refused with `400` `BAD_FILE_TYPE` `Only .csv and .atdf files are accepted.` The extension chooses the reader. A multipart body carrying no file is refused with `400` `FILE_REQUIRED` `Choose a CSV or ATDF file to upload.`                                                                                                               |
+| **UPL-07** | A multipart file larger than **100 MB** is refused with `413` `FILE_TOO_LARGE` `File is larger than the 100 MB file limit.`                                                                                                                                                                                                                                                                                                  |
+| **UPL-69** | A multipart body that cannot be read — truncated mid-upload, or otherwise malformed — is refused with `400` `MALFORMED_UPLOAD` `The upload could not be read. It may have been interrupted — send the file again.` A parser failure is never reported as a `500`. A **well-formed** body carrying a zero-byte file is readable and therefore accepted, then rejected by the parser as `File is empty.` with a stored report. |
+| **UPL-70** | A correctly signed, unexpired token whose subject is not a known user is refused with `401` `UNAUTHORIZED` `Your session refers to a user that no longer exists. Sign in again.` — never a foreign-key `500`. The seeded practice accounts therefore carry **fixed** ids, so re-creating the database does not orphan a token that is still live.                                                                            |
+| **UPL-08** | A non-multipart submission must carry `Content-Type: text/csv`, or it is refused with `415` `UNSUPPORTED_MEDIA_TYPE` `Use multipart/form-data or text/csv.` A pasted body larger than **5 MB** is refused with `413` `FILE_TOO_LARGE` `File is larger than the 5 MB limit.` A pasted upload records the file name `pasted-wafer.csv`.                                                                                        |
+| **UPL-09** | A file with more than **50,000 data rows** lands as an upload in status `Rejected` with the message `File contains more than the 50,000 row limit.`                                                                                                                                                                                                                                                                          |
 
 ### 6.2 Status
 
@@ -160,6 +162,24 @@ Bins `0` and `1` are passing bins. Every other hard bin is a failing bin.
 | **UPL-16** | Lines before the header may only be `Notch: 0`, `Notch: 90`, `Notch: 180` or `Notch: 270`. The angle is validated as above and then **discarded** — it is not stored on the wafer and appears nowhere in the UI or the API.                                                                                                                          |
 | **UPL-17** | `Every data row failed validation.` is a `Rejected` upload that still carries a full validation report: `rowsRejected` equals the number of rows and every row's error is retrievable.                                                                                                                                                               |
 
+### 6.3a ATDF parsing
+
+ATDF is the ASCII rendering of STDF: one record per line as `TYPE:field|field|...`,
+where a line beginning with a space continues the record above it. An ATDF carries
+its own lot, wafer and bin metadata, so none of the CSV header rules (UPL-15,
+UPL-16) apply to it.
+
+| ID         | Requirement                                                                                                                                                                                                                |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **UPL-61** | Continuation lines are folded into the record above before any field is read, so a wrapped `MIR` still yields its lot.                                                                                                     |
+| **UPL-62** | The lot is `MIR` field 1 and must be 1–32 characters. The wafer number is `WIR` field 4, cross-checked against `WRR` field 4 when both are present; a disagreement rejects the file naming both values.                    |
+| **UPL-63** | Each `PRR` becomes one die: pass/fail from its part flag, hard bin, soft bin, `X_COORD` and `Y_COORD`. Coordinates are stored **as recorded**, including negatives, and are never shifted into a positive frame.           |
+| **UPL-64** | `HBR` and `SBR` supply each bin's name and pass/fail disposition. Names populate `hard_bin_name` / `soft_bin_name`, truncated at 32 characters.                                                                            |
+| **UPL-65** | Pass/fail comes from the `PRR` part flag. Where an `HBR` disposition contradicts it, the row is rejected with `FLAG_BIN_MISMATCH`; the parser never silently prefers one source over the other.                            |
+| **UPL-66** | `PTR` parametric records are counted toward nothing and discarded — no per-test measurement is stored.                                                                                                                     |
+| **UPL-67** | A file is rejected outright when it is empty, carries no `FAR`, has no `MIR` lot, has neither `WIR` nor `WRR`, carries no `PRR` parts, exceeds the 50,000-die limit, or contains more than one `WIR` — one wafer per file. |
+| **UPL-68** | Row-level checks reuse the CSV error codes so the validation report is format-agnostic, reporting the physical line where the record started.                                                                              |
+
 ### 6.4 Row validation
 
 | ID         | Requirement                                                                                                                                                                                                                                                                                                      |
@@ -174,7 +194,7 @@ Bins `0` and `1` are passing bins. Every other hard bin is a failing bin.
 | `OUT_OF_RANGE`      | `Lot` longer than 32 characters                                                 | `Lot`                            | `Lot must contain between 1 and 32 characters.`               |
 | `OUT_OF_RANGE`      | `HB name` / `SB name` longer than 32 characters                                 | `HB name` / `SB name`            | `<HB name\|SB name> must contain no more than 32 characters.` |
 | `NOT_AN_INTEGER`    | `Wafer`, `X`, `Y`, `HB#` or `SB#` is not a whole number (checked in that order) | the offending column             | `<Column> must be a whole number.`                            |
-| `OUT_OF_RANGE`      | `Wafer` outside 1–25, `X` or `Y` outside 0–99 (checked in that order)           | the offending column             | `<Column> must be between <min> and <max>.`                   |
+| `OUT_OF_RANGE`      | `Wafer` outside 1–9999, `X` or `Y` outside −32768–32767 (checked in that order) | the offending column             | `<Column> must be between <min> and <max>.`                   |
 | `OUT_OF_RANGE`      | `HB#` or `SB#` below 0                                                          | the offending column             | `<Column> must be 0 or greater.`                              |
 | `BAD_FLAG`          | `PF_Flag` is neither `P` nor `F`                                                | `PF_Flag`                        | `PF_Flag must be P or F.`                                     |
 | `FLAG_BIN_MISMATCH` | The flag disagrees with the hard-bin classification                             | `PF_Flag`                        | `PF_Flag must be <P\|F> when HB# is <n>.`                     |
@@ -268,7 +288,7 @@ count.
 | `POST`   | `/api/auth/login`                                           | Username and password for a bearer token. Bad credentials → `401` `INVALID_CREDENTIALS` `Invalid username or password.` | —        |
 | `GET`    | `/api/reference/devices`                                    | The devices of section 4.                                                                                               | viewer   |
 | `GET`    | `/api/reference/test-programs?device=`                      | The programs of one device.                                                                                             | viewer   |
-| `POST`   | `/api/uploads?device=&program=`                             | Submit multipart or `text/csv`. Returns `202`.                                                                          | engineer |
+| `POST`   | `/api/uploads?device=&program=`                             | Submit multipart or `text/csv`. Returns `202`.                                                                          | dev, qa  |
 | `GET`    | `/api/uploads?status=&search=&page=&pageSize=`              | Paged history.                                                                                                          | viewer   |
 | `GET`    | `/api/uploads/{id}`                                         | One upload with its status and counts.                                                                                  | viewer   |
 | `GET`    | `/api/uploads/{id}/errors?page=&pageSize=`                  | Paged validation report.                                                                                                | viewer   |
@@ -294,13 +314,13 @@ status code, every required field, and every enum.
 
 ### 8.2 Screens
 
-| Screen             | Route                    | Contains                                                                                                                                                                                                  |
-| ------------------ | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Sign in**        | `/login`                 | Username, password, error alert, demo-user hint.                                                                                                                                                          |
-| **Upload data**    | `/upload`                | Device and Test program selectors; `File` / `Paste CSV` tabs; the file input (`data-testid="csv-file"`, `accept=".csv,text/csv"`) or the paste text area; `Upload`; then the live status panel of UPL-12. |
-| **Upload history** | `/uploads`               | The list of UPL-28 with its status filter, search box and pager; opens the validation report dialog.                                                                                                      |
-| **Wafers**         | `/wafers`                | The list of UPL-34 with its three filters and pager.                                                                                                                                                      |
-| **Wafer detail**   | `/wafers/:waferSequence` | The metrics, wafer map and bin distribution of UPL-35.                                                                                                                                                    |
+| Screen             | Route                    | Contains                                                                                                                                                                                                                   |
+| ------------------ | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Sign in**        | `/login`                 | Username, password, error alert, demo-user hint.                                                                                                                                                                           |
+| **Upload data**    | `/upload`                | Device and Test program selectors; `File` / `Paste CSV` tabs; the file input (`data-testid="csv-file"`, `accept=".csv,.atdf,text/csv,text/plain"`) or the paste text area; `Upload`; then the live status panel of UPL-12. |
+| **Upload history** | `/uploads`               | The list of UPL-28 with its status filter, search box and pager; opens the validation report dialog.                                                                                                                       |
+| **Wafers**         | `/wafers`                | The list of UPL-34 with its three filters and pager.                                                                                                                                                                       |
+| **Wafer detail**   | `/wafers/:waferSequence` | The metrics, wafer map and bin distribution of UPL-35.                                                                                                                                                                     |
 
 **UPL-47** — Every screen except Sign in requires a session. Without one the app
 redirects to `/login`, and a `401` from any request signs the user out.
@@ -341,7 +361,7 @@ belonging in the development team's own tests:
   upload, lot, wafer, die or validation row survives a refused submission.
 - Retention of the source bytes and their SHA-256 on the upload row.
 - The database CHECK constraints: `pass_count <= part_count`, `0 <= yield <= 100`,
-  `wafer_number` 1–25, `x`/`y` 0–99, and the unique `(wafer_sequence, x, y)`.
+  `wafer_number` 1–9999, `x`/`y` −32768–32767, and the unique `(wafer_sequence, x, y)`.
 
 ## 12. Glossary
 

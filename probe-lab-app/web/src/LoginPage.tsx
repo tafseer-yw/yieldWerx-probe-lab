@@ -13,7 +13,7 @@ const features = [
   'Find groups of failed dies that touch on their sides or corners',
   'Bin pareto with bin % and a running-total line',
   'Explainable wafer triage with fixed pattern matching',
-  'Roles — viewer, engineer, admin — over a documented OpenAPI surface',
+  'Roles — viewer, dev, qa, admin — over a documented OpenAPI surface',
 ];
 
 export function LoginPage(): ReactElement {
@@ -46,7 +46,7 @@ export function LoginPage(): ReactElement {
         <WaferHero />
         <Logo onDark height={38} />
         <div className="login-pitch">
-          <h2>Hands-on PROBE practice for QA and Engineering</h2>
+          <h2>Hands-on PROBE practice for Dev and QA</h2>
           <div className="login-features">
             {features.map((feature) => (
               <span className="login-feature" key={feature}>
@@ -76,7 +76,7 @@ export function LoginPage(): ReactElement {
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
                     autoComplete="username"
-                    placeholder="engineer"
+                    placeholder="dev"
                     required
                   />
                 </Field>
@@ -100,10 +100,11 @@ export function LoginPage(): ReactElement {
             <p className="kicker">Demo accounts</p>
             <div className="demo-user-row">
               <code className="demo-user">viewer / viewer</code>
-              <code className="demo-user">engineer / engineer</code>
+              <code className="demo-user">dev / dev</code>
+              <code className="demo-user">qa / qa</code>
               <code className="demo-user">admin / admin</code>
             </div>
-            <p className="muted">Only engineer and admin may upload wafer data.</p>
+            <p className="muted">Only dev, qa, and admin may upload wafer data.</p>
           </div>
         </div>
       </main>

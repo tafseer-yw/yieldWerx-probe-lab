@@ -11,8 +11,9 @@ import {
   type UploadSubmissionResponse,
   type UploadSummary,
 } from '../../../shared/contracts.js';
-import { apiError, requireRole, type JwtPayload } from '../security.js';
+import { apiError, isApiError, requireRole, type JwtPayload } from '../security.js';
 import type { ApplicationStore, UploadHistoryFilter } from '../store.js';
+import { parseWaferAtdf } from '../wafer-atdf.js';
 import { parseWaferCsv } from '../wafer-csv.js';
 import { errorResponseSchema } from './schemas.js';
 
@@ -71,10 +72,19 @@ const uploadSummarySchema = {
   },
 } as const;
 
+/** ATDF has no registered media type, so the format is carried separately. */
+type UploadFormat = 'csv' | 'atdf';
+
+const uploadFormats = new Map<string, { format: UploadFormat; contentType: string }>([
+  ['.csv', { format: 'csv', contentType: 'text/csv' }],
+  ['.atdf', { format: 'atdf', contentType: 'text/plain' }],
+]);
+
 interface UploadBody {
   sourceType: 'file' | 'paste';
   fileName: string;
-  contentType: 'text/csv';
+  contentType: string;
+  format: UploadFormat;
   data: Buffer;
 }
 
@@ -84,22 +94,39 @@ async function readUploadBody(
   if (request.isMultipart()) {
     try {
       const file = await request.file({ limits: { files: 1, fileSize: MAX_FILE_UPLOAD_BYTES } });
-      if (!file) throw apiError(400, 'FILE_REQUIRED', 'Choose a CSV file to upload.');
+      if (!file) throw apiError(400, 'FILE_REQUIRED', 'Choose a CSV or ATDF file to upload.');
       const extension = path.extname(file.filename).toLowerCase();
-      if (extension !== '.csv') {
+      const chosen = uploadFormats.get(extension);
+      if (!chosen) {
         file.file.resume();
-        throw apiError(400, 'BAD_FILE_TYPE', 'Only .csv files are accepted.');
+        throw apiError(400, 'BAD_FILE_TYPE', 'Only .csv and .atdf files are accepted.');
       }
       const data = await file.toBuffer();
       if (data.byteLength > MAX_FILE_UPLOAD_BYTES || file.file.truncated) {
         throw apiError(413, 'FILE_TOO_LARGE', 'File is larger than the 100 MB file limit.');
       }
-      return { sourceType: 'file', fileName: file.filename, contentType: 'text/csv', data };
+      return {
+        sourceType: 'file',
+        fileName: file.filename,
+        contentType: chosen.contentType,
+        format: chosen.format,
+        data,
+      };
     } catch (error: unknown) {
+      if (isApiError(error)) throw error;
       if (error instanceof Error && 'code' in error && error.code === 'FST_REQ_FILE_TOO_LARGE') {
         throw apiError(413, 'FILE_TOO_LARGE', 'File is larger than the 100 MB file limit.');
       }
-      throw error;
+      // Busboy rejects a truncated or malformed body with a plain Error, which would
+      // otherwise surface as a 500. The body belongs to the caller, so this is a
+      // client error — an upload cut short by a dropped connection is the usual way
+      // to reach it. The cause is logged because the reply cannot carry it.
+      request.log.warn({ err: error }, 'multipart body could not be read');
+      throw apiError(
+        400,
+        'MALFORMED_UPLOAD',
+        'The upload could not be read. It may have been interrupted — send the file again.',
+      );
     }
   }
 
@@ -113,7 +140,14 @@ async function readUploadBody(
   if (data.byteLength > MAX_UPLOAD_BYTES) {
     throw apiError(413, 'FILE_TOO_LARGE', 'File is larger than the 5 MB limit.');
   }
-  return { sourceType: 'paste', fileName: 'pasted-wafer.csv', contentType: 'text/csv', data };
+  // Pasting stays CSV-only: ATDF arrives as a tester file, not as typed rows.
+  return {
+    sourceType: 'paste',
+    fileName: 'pasted-wafer.csv',
+    contentType: 'text/csv',
+    format: 'csv',
+    data,
+  };
 }
 
 export async function registerUploadRoutes(
@@ -123,11 +157,12 @@ export async function registerUploadRoutes(
   app.post<{ Querystring: UploadQuery; Body: Buffer; Reply: UploadSubmissionResponse }>(
     '/api/uploads',
     {
-      preHandler: requireRole('engineer'),
+      // dev and qa share rank 2, so this admits both; only viewer is refused.
+      preHandler: requireRole('dev'),
       bodyLimit: MAX_FILE_UPLOAD_BYTES,
       schema: {
         tags: ['Wafer Upload'],
-        summary: 'Submit wafer CSV data for parsing',
+        summary: 'Submit wafer CSV or ATDF data for parsing',
         security: [{ bearerAuth: [] }],
         querystring: {
           type: 'object',
@@ -169,7 +204,7 @@ export async function registerUploadRoutes(
         deviceCode: request.query.device,
         testProgramCode: request.query.program,
         submittedByUserId: payload.sub,
-        parsed: parseWaferCsv(body.data),
+        parsed: body.format === 'atdf' ? parseWaferAtdf(body.data) : parseWaferCsv(body.data),
       });
       return reply.code(202).send({ uploadId, status: 'Queued' });
     },
