@@ -9,7 +9,7 @@
  * Each wafer is emitted as CSV text and pushed through the ordinary upload
  * path — the same parser, the same validation, the same landing. Nothing here
  * writes to the die table directly, so a sample wafer is indistinguishable
- * from one an engineer uploaded, and the last file deliberately carries bad
+ * from one a dev or qa user uploaded, and the last file deliberately carries bad
  * rows so Upload history and the validation report have something to show.
  *
  * Every value is deterministic: loading twice produces identical wafers.

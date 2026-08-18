@@ -2,6 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent, ReactElement } from 'react';
 
 import type { DieRecord } from '../../shared/contracts.js';
+import {
+  dieLattice,
+  latticeColumn,
+  latticeRow,
+  type DieLattice,
+} from '../../shared/die-lattice.js';
 import { help } from './help.js';
 import { useResolvedTheme } from './theme.js';
 import { HelpDot } from './ui.js';
@@ -52,8 +58,9 @@ interface BinCount {
 interface WaferModel {
   cols: number;
   rows: number;
-  minX: number;
-  minY: number;
+  /** Raw coordinates are lattice positions whose step is not always 1. */
+  lattice: DieLattice;
+  /** Keyed by lattice cell `column:row`, not by raw coordinate. */
   byKey: Map<string, DieRecord>;
   passCount: number;
   failCount: number;
@@ -84,8 +91,7 @@ function buildModel(dies: DieRecord[]): WaferModel {
     return {
       cols: 0,
       rows: 0,
-      minX: 0,
-      minY: 0,
+      lattice: dieLattice([]),
       byKey: new Map(),
       passCount: 0,
       failCount: 0,
@@ -94,22 +100,15 @@ function buildModel(dies: DieRecord[]): WaferModel {
       softBins: [],
     };
   }
-  let minX = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
+  const lattice = dieLattice(dies);
   let passCount = 0;
   const byKey = new Map<string, DieRecord>();
   const hardBins = new Map<number, { count: number; passing: boolean }>();
   const softBins = new Map<number, { count: number; passing: boolean }>();
 
   for (const die of dies) {
-    if (die.x < minX) minX = die.x;
-    if (die.x > maxX) maxX = die.x;
-    if (die.y < minY) minY = die.y;
-    if (die.y > maxY) maxY = die.y;
     if (die.passFailFlag === 'P') passCount += 1;
-    byKey.set(`${die.x}:${die.y}`, die);
+    byKey.set(`${latticeColumn(lattice, die.x)}:${latticeRow(lattice, die.y)}`, die);
     const hard = hardBins.get(die.hardBin);
     hardBins.set(die.hardBin, {
       count: (hard?.count ?? 0) + 1,
@@ -124,14 +123,14 @@ function buildModel(dies: DieRecord[]): WaferModel {
     });
   }
 
-  const cols = maxX - minX + 1;
-  const rows = maxY - minY + 1;
+  const cols = lattice.columns;
+  const rows = lattice.rows;
   const centreX = (cols - 1) / 2;
   const centreY = (rows - 1) / 2;
   let spread = 0;
   for (const die of dies) {
-    const dx = die.x - minX - centreX;
-    const dy = die.y - minY - centreY;
+    const dx = latticeColumn(lattice, die.x) - centreX;
+    const dy = latticeRow(lattice, die.y) - centreY;
     const distance = Math.sqrt(dx * dx + dy * dy);
     if (distance > spread) spread = distance;
   }
@@ -139,8 +138,7 @@ function buildModel(dies: DieRecord[]): WaferModel {
   return {
     cols,
     rows,
-    minX,
-    minY,
+    lattice,
     byKey,
     passCount,
     failCount: dies.length - passCount,
@@ -313,7 +311,7 @@ export function WaferMap({
         const dx = cx - centre;
         const dy = cy - centre;
         if (Math.sqrt(dx * dx + dy * dy) > radius - cell * 0.62) continue;
-        if (model.byKey.has(`${model.minX + col}:${model.minY + row}`)) continue;
+        if (model.byKey.has(`${col}:${row}`)) continue;
         cellPath(
           context,
           originX + col * cell + gap / 2,
@@ -328,8 +326,8 @@ export function WaferMap({
 
     // Measured dies.
     for (const die of model.byKey.values()) {
-      const left = originX + (die.x - model.minX) * cell;
-      const top = originY + (die.y - model.minY) * cell;
+      const left = originX + latticeColumn(model.lattice, die.x) * cell;
+      const top = originY + latticeRow(model.lattice, die.y) * cell;
       const inCluster = highlight?.has(`${die.x}:${die.y}`) === true;
       context.globalAlpha = dimOthers && !inCluster ? 0.24 : 1;
       context.fillStyle =
@@ -377,7 +375,7 @@ export function WaferMap({
       const originY = size / 2 - (model.rows * cell) / 2;
       const col = Math.floor((canvasX - originX) / cell);
       const row = Math.floor((canvasY - originY) / cell);
-      const die = model.byKey.get(`${model.minX + col}:${model.minY + row}`);
+      const die = model.byKey.get(`${col}:${row}`);
       if (!die) {
         setHover(null);
         return;

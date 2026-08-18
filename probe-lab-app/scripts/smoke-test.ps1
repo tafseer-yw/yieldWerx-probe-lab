@@ -7,8 +7,8 @@ try {
   $health = Invoke-RestMethod "$base/health" -TimeoutSec 5
   if ($health.status -ne 'ok') { throw "Health returned '$($health.status)'." }
 
-  Write-Host '=== login engineer ==='
-  $login = Invoke-RestMethod "$base/api/auth/login" -Method Post -ContentType 'application/json' -Body '{"username":"engineer","password":"engineer"}' -TimeoutSec 10
+  Write-Host '=== login dev ==='
+  $login = Invoke-RestMethod "$base/api/auth/login" -Method Post -ContentType 'application/json' -Body '{"username":"dev","password":"dev"}' -TimeoutSec 10
   $headers = @{ Authorization = "Bearer $($login.accessToken)" }
 
   Write-Host '=== reference data ==='

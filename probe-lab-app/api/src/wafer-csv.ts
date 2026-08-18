@@ -11,56 +11,17 @@
  */
 import { parse } from 'csv-parse/sync';
 
+import {
+  dieCoordinateRange,
+  maximumWaferRows,
+  waferNumberRange,
+  type ParsedDie,
+  type UploadErrorCode,
+  type UploadParseResult,
+  type UploadValidationError,
+} from './wafer-upload.js';
+
 export const waferCsvColumns = ['Lot', 'Wafer', 'X', 'Y', 'HB#', 'SB#', 'PF_Flag'] as const;
-export const maximumWaferRows = 50_000;
-
-export type UploadErrorCode =
-  | 'MISSING_VALUE'
-  | 'NOT_AN_INTEGER'
-  | 'OUT_OF_RANGE'
-  | 'BAD_FLAG'
-  | 'DUPLICATE_DIE'
-  | 'FLAG_BIN_MISMATCH';
-
-export interface ParsedDie {
-  rowNumber: number;
-  rawText: string;
-  lot: string;
-  wafer: number;
-  x: number;
-  y: number;
-  hardBin: number;
-  hardBinName: string | null;
-  softBin: number;
-  softBinName: string | null;
-  passFailFlag: 'P' | 'F';
-}
-
-export interface UploadValidationError {
-  rowNumber: number;
-  column: string;
-  code: UploadErrorCode;
-  message: string;
-  rawText: string;
-}
-
-export type UploadParseResult =
-  | {
-      kind: 'ready';
-      status: 'Succeeded' | 'Completed with errors';
-      rowsRead: number;
-      lot: string;
-      wafer: number;
-      notchAngle: 0 | 90 | 180 | 270 | null;
-      acceptedDies: ParsedDie[];
-      errors: UploadValidationError[];
-    }
-  | {
-      kind: 'rejected';
-      rowsRead: number;
-      message: string;
-      errors: UploadValidationError[];
-    };
 
 interface CsvRecord {
   record: string[];
@@ -396,9 +357,9 @@ export function parseWaferCsv(input: string | Buffer): UploadParseResult {
     const softBin = Number(softBinText);
 
     const rangeChecks = [
-      rangeError(row, 'Wafer', wafer, 1, 25),
-      rangeError(row, 'X', x, 0, 99),
-      rangeError(row, 'Y', y, 0, 99),
+      rangeError(row, 'Wafer', wafer, waferNumberRange.minimum, waferNumberRange.maximum),
+      rangeError(row, 'X', x, dieCoordinateRange.minimum, dieCoordinateRange.maximum),
+      rangeError(row, 'Y', y, dieCoordinateRange.minimum, dieCoordinateRange.maximum),
       rangeError(row, 'HB#', hardBin, 0),
       rangeError(row, 'SB#', softBin, 0),
     ];

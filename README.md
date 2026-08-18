@@ -2,12 +2,12 @@
 
 UI changes follow the app-specific [`STYLEGUIDE.md`](STYLEGUIDE.md).
 
-A lightweight, fully offline repo bundling **a small wafer-analysis app**, **the BDD test framework that tests it**, and **the PROBE plugin**. It exists so QA and Engineering teams can practice PROBE skills (specify → codify → automate → attest → promote) against a small, self-contained full-stack app.
+A lightweight, fully offline repo bundling **a small wafer-analysis app**, **the BDD test framework that tests it**, and **the PROBE plugin**. It exists so Dev and QA teams can practice PROBE skills (specify → codify → automate → attest → promote) against a small, self-contained full-stack app.
 
 ## What's here
 
 - **`probe-lab-app/`** — the app under test: **yieldWerx PROBE Lab** (Fastify API + SQLite + React/Vite). Four end-to-end workflows:
-  1. **Wafer upload → wafer map** — login → upload a wafer CSV → view the die map + yield.
+  1. **Wafer upload → wafer map** — login → upload a wafer CSV or ATDF file → view the die map + yield.
   2. **Cluster detection** — contiguous fail-die clusters (4-/8-way adjacency, minimum size).
   3. **Bin pareto report** — bin % + cumulative %.
   4. **Wafer triage** — combine fixed pattern matching, spatial loss, clusters, and failed-bin priorities.
@@ -25,7 +25,7 @@ npx playwright install chromium
 npm run app:dev             # seed SQLite and start API :5000 + web :3000
 ```
 
-Open <http://127.0.0.1:3000> and sign in with `engineer / engineer`; use `admin / admin` to manage sample wafers. The interactive **PROBE guide** is beside **API docs** in the app header.
+Open <http://127.0.0.1:3000> and sign in with `dev / dev` or `qa / qa`; use `admin / admin` to manage sample wafers. The interactive **PROBE guide** is beside **API docs** in the app header.
 
 Run the verification suite from a second terminal:
 
@@ -38,7 +38,7 @@ npm test
 ## Practice tracks
 
 - **Dev track:** review the OpenAPI contract, challenge parsing and RBAC boundaries, implement a scoped change, then run lint, typecheck, unit/API, smoke, and browser gates.
-- **QA track:** specialize the engineering loop around expected outcomes, valid and invalid wafer data, UI/API evidence, and automated scenarios.
+- **QA track:** specialize the Dev loop around expected outcomes, valid and invalid wafer data, UI/API evidence, and automated scenarios.
 
 Both tracks use the same PROBE loop: **specify → codify → automate → attest → promote**.
 

@@ -6,7 +6,8 @@
     "mock": true,
     "roles": {
       "admin": { "username": "admin", "password": "admin" },
-      "engineer": { "username": "engineer", "password": "engineer" },
+      "dev": { "username": "dev", "password": "dev" },
+      "qa": { "username": "qa", "password": "qa" },
       "viewer": { "username": "viewer", "password": "viewer" }
     }
   },

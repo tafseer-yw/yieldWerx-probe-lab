@@ -3,7 +3,7 @@
 UI changes follow the repository [`STYLEGUIDE.md`](../STYLEGUIDE.md).
 
 A trimmed-down wafer-analysis app with its own API, database, and frontend. It
-exists so QA and Engineering teams can practice **PROBE** skills (specify →
+exists so Dev and QA teams can practice **PROBE** skills (specify →
 codify → automate → attest → promote) against a small, self-contained, fully
 offline full-stack app. Four end-to-end workflows are included.
 
@@ -18,7 +18,7 @@ from anywhere.
 
 **1. Wafer upload → wafer map**
 
-1. **Sign in** (local JWT auth, roles: `viewer` / `engineer` / `admin`)
+1. **Sign in** (local JWT auth, roles: `viewer` / `dev` / `qa` / `admin`)
 2. **Pick a device + test program**
 3. **Upload a wafer CSV** (file or paste) → the server **synchronously** parses,
    validates, and stores the wafer + dies
@@ -51,13 +51,14 @@ npm start                        # seeds the DB, then runs API (:5000) + web (:3
 
 Open <http://localhost:3000> and sign in as:
 
-| Username   | Password   | Role     | Can upload? |
-| ---------- | ---------- | -------- | ----------- |
-| `viewer`   | `viewer`   | viewer   | no          |
-| `engineer` | `engineer` | engineer | yes         |
-| `admin`    | `admin`    | admin    | yes         |
+| Username | Password | Role   | Can upload? |
+| -------- | -------- | ------ | ----------- |
+| `viewer` | `viewer` | viewer | no          |
+| `dev`    | `dev`    | dev    | yes         |
+| `qa`     | `qa`     | qa     | yes         |
+| `admin`  | `admin`  | admin  | yes         |
 
-To try a workflow: sign in as `engineer`, go to **Upload data**, choose a device and
+To try a workflow: sign in as `dev` or `qa`, go to **Upload data**, choose a device and
 program, upload `database/sample-wafer.csv`, then open **Wafers** and click the new
 wafer to see the die map. Select **Triage wafer** there, or open **Wafer triage** from
 the Analysis navigation and find it by sequence, device, lot, wafer number, or program.
@@ -75,7 +76,14 @@ Removal is scoped to what the loader created, so your own uploads — and the
 ## Reset the database
 
 Delete `data/practice-probe-db.sqlite*` and run `npm run setup` again. The setup
-script is idempotent (uses `CREATE TABLE IF NOT EXISTS` and `INSERT OR IGNORE`).
+script is idempotent (uses `CREATE TABLE IF NOT EXISTS` and `INSERT OR IGNORE`),
+and the four practice accounts keep **fixed** user ids, so a re-seed does not
+invalidate a token a browser is still holding.
+
+A database created before ATDF support carries the old wafer and coordinate
+limits, and SQLite cannot alter a `CHECK` constraint in place. The store refuses
+to open such a file and says so, rather than rejecting valid wafer data later —
+delete it and re-seed.
 
 ## API surface
 
@@ -87,7 +95,7 @@ script is idempotent (uses `CREATE TABLE IF NOT EXISTS` and `INSERT OR IGNORE`).
 | POST   | `/api/auth/login`                                                                         | –        | username/password → JWT                                                           |
 | GET    | `/api/reference/devices`                                                                  | viewer   | list devices                                                                      |
 | GET    | `/api/reference/test-programs?device=`                                                    | viewer   | list programs                                                                     |
-| POST   | `/api/uploads?device=&program=`                                                           | engineer | upload CSV (multipart or text/csv), parsed synchronously                          |
+| POST   | `/api/uploads?device=&program=`                                                           | dev, qa  | upload CSV or ATDF (multipart, or text/csv paste), parsed synchronously           |
 | GET    | `/api/uploads`                                                                            | viewer   | paged history (status/search/page/pageSize)                                       |
 | GET    | `/api/uploads/:id`                                                                        | viewer   | upload summary                                                                    |
 | GET    | `/api/uploads/:id/errors`                                                                 | viewer   | paged validation errors                                                           |
@@ -115,8 +123,8 @@ Header (aliases accepted): `Lot, Wafer, X, Y, HB#, SB#, PF_Flag`. An optional
 | Field   | Rule                                                |
 | ------- | --------------------------------------------------- |
 | Lot     | 1–32 chars, same lot across all rows                |
-| Wafer   | integer 1–25, same wafer across all rows            |
-| X, Y    | integers 0–99, unique per upload                    |
+| Wafer   | integer 1–9999, same wafer across all rows          |
+| X, Y    | integers −32768–32767, unique per upload            |
 | HB#     | integer ≥ 0 (0 and 1 ⇒ **Pass**, others ⇒ Fail)     |
 | SB#     | integer ≥ 0                                         |
 | PF_Flag | `P` or `F`, must match the pass/fail implied by HB# |
@@ -126,10 +134,59 @@ Validation error codes (same as the real app): `MISSING_VALUE`,
 `FLAG_BIN_MISMATCH`. An upload ends `Succeeded`, `Completed with errors`
 (some rows rejected), or `Rejected` (no valid rows).
 
+The wafer and coordinate spans are the STDF spans, so a CSV and an ATDF describing
+the same wafer land identically. Real wafer numbers run past 25 and real die
+coordinates are measured from the wafer centre, so both are accepted as recorded.
+
+## ATDF format
+
+ATDF is the ASCII rendering of STDF: one record per line as `TYPE:field|field|...`,
+where a line beginning with a space continues the record above it. Upload an
+`.atdf` file through **Upload data → File**; pasting stays CSV-only, because ATDF
+arrives as a tester file rather than typed rows.
+
+Only the records a wafer map, cluster view, and bin pareto consume are read:
+
+| Record | Read for                                                            |
+| ------ | ------------------------------------------------------------------- |
+| `FAR`  | confirming the file really is ATDF                                  |
+| `MIR`  | the lot code (field 1)                                              |
+| `WIR`  | the wafer id (field 4), cross-checked against `WRR` when both exist |
+| `HBR`  | each hard bin's name and its pass/fail disposition                  |
+| `SBR`  | each soft bin's name and its pass/fail disposition                  |
+| `PRR`  | one die: pass/fail flag, hard bin, soft bin, X and Y                |
+| `PTR`  | **ignored** — nothing here stores a per-test measurement            |
+
+Because `HBR`/`SBR` carry bin names, an ATDF upload produces a bin pareto with
+real bin labels where a CSV without the optional name columns shows `Bin <n>`.
+
+Pass/fail comes from the `PRR` flag the tester recorded. The bin's `HBR`
+disposition can contradict it but never replaces it: a disagreement is a
+`FLAG_BIN_MISMATCH` row error, exactly as a CSV whose `PF_Flag` fights its `HB#`
+would be. A file is rejected outright when it has no `FAR`, no `MIR` lot, no
+wafer record, no `PRR` parts, or more than one `WIR` — one wafer per file.
+
+`database/sample-wafer.atdf` is a six-die fixture that exercises negative
+coordinates and a wafer number above 25.
+
+### Die pitch
+
+An ATDF's `X_COORD`/`Y_COORD` are stepper positions, so neighbouring dies are a
+whole **die pitch** apart — 5 in the sample file, where a CSV written in die
+indices steps by 1. Coordinates are stored exactly as recorded; anything that
+reasons about dies touching derives the pitch instead (`shared/die-lattice.ts`,
+the greatest common divisor of the gaps between distinct coordinates, per axis).
+Cluster adjacency and the wafer map grid both work in those lattice indices, so
+the same physical wafer written at either pitch gives the same clusters and the
+same `28 x 18`-style grid — rather than a sparse `136 x 86` one that finds no
+clusters at all.
+
 ## What was deliberately cut (vs. the real app)
 
 - No async worker / job queue — upload parsing is synchronous.
-- No ATDF/STDF, object storage, production root-cause triage, lot intelligence, or experience center.
+- No STDF (binary), object storage, production root-cause triage, lot intelligence, or
+  experience center. **ATDF wafer results are read**, but only the records a wafer map needs —
+  the parametric `PTR` measurements are counted and discarded.
 - Cluster detection, bin-pareto reporting, and Wafer triage are deliberately compact practice implementations.
 - No coordinate-frame / observation-election complexity on the wafer detail —
   dies keep `x, y, hardBin, softBin, passFailFlag`.
@@ -149,9 +206,13 @@ Validation error codes (same as the real app): `MISSING_VALUE`,
 probe-lab-app/
   shared/contracts.ts        # DTOs shared by api + web
   database/schema.sql        # SQLite DDL + indexes
-  database/sample-wafer.csv  # ready-to-upload fixture
+  database/sample-wafer.csv  # ready-to-upload CSV fixture
+  database/sample-wafer.atdf # ready-to-upload ATDF fixture (negative coords, wafer 42)
   scripts/setup.ts           # npm run setup — create db + seed
-  api/src/                   # Fastify API (app, server, store, routes, csv parser, auth)
+  api/src/                   # Fastify API (app, server, store, routes, auth)
+  api/src/wafer-upload.ts    #   the parse contract both readers return
+  api/src/wafer-csv.ts       #   CSV reader
+  api/src/wafer-atdf.ts      #   ATDF reader
   web/                       # Vite + React SPA
 ```
 

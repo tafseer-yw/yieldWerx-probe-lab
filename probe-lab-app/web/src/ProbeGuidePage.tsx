@@ -3,10 +3,11 @@ import { useSearchParams } from 'react-router-dom';
 
 import { Alert, Badge, Card, CardBody, CardHead, Icon } from './ui.js';
 
-type GuideSection = 'start' | 'plugins' | 'cowork' | 'dev' | 'qa';
+type GuideSection = 'start' | 'database' | 'plugins' | 'cowork' | 'dev' | 'qa';
 
 const guideSections: Array<{ id: GuideSection; label: string; hint: string }> = [
   { id: 'start', label: 'Get started', hint: 'Run the lab' },
+  { id: 'database', label: 'Database', hint: 'Schema and access' },
   { id: 'plugins', label: 'Plugins', hint: 'Clone and understand' },
   { id: 'cowork', label: 'Claude & Cowork', hint: 'Install and invoke' },
   { id: 'dev', label: 'Dev track', hint: 'Build and review' },
@@ -211,6 +212,7 @@ export function ProbeGuidePage(): ReactElement {
       </Card>
 
       {active === 'start' ? <GettingStarted completed={completed} toggle={toggle} /> : null}
+      {active === 'database' ? <DatabaseGuide completed={completed} toggle={toggle} /> : null}
       {active === 'plugins' ? <PluginIntroduction completed={completed} toggle={toggle} /> : null}
       {active === 'cowork' ? <CoworkGuide completed={completed} toggle={toggle} /> : null}
       {active === 'dev' ? (
@@ -255,8 +257,9 @@ function GettingStarted({ completed, toggle }: ChecklistProps): ReactElement {
         />
         <CommandBlock label="Seed and start the app" command="npm run app:dev" />
         <Alert tone="info">
-          Sign in with <code>engineer / engineer</code> for uploads, or <code>admin / admin</code>{' '}
-          to manage sample wafers. These are local practice credentials only.
+          Sign in with <code>dev / dev</code> or <code>qa / qa</code> for uploads, or{' '}
+          <code>admin / admin</code> to manage sample wafers. These are local practice credentials
+          only.
         </Alert>
         <Checklist
           prefix="start"
@@ -571,5 +574,111 @@ function ExternalLink({ href, children }: { href: string; children: ReactNode })
       {children}
       <span aria-hidden="true">↗</span>
     </a>
+  );
+}
+
+function DatabaseGuide({ completed, toggle }: ChecklistProps): ReactElement {
+  return (
+    <Card>
+      <CardHead
+        title="The practice database"
+        subtitle="One SQLite file, created by the seed script and reached only through the store layer."
+      />
+      <CardBody>
+        <div className="guide-callout-grid">
+          <GuideCallout title="Where the file lives" icon="target">
+            <code>probe-lab-app/data/practice-probe-db.sqlite</code>, in WAL mode, so a{' '}
+            <code>-wal</code> and a <code>-shm</code> file sit beside it. The whole{' '}
+            <code>data/</code> folder is gitignored, so the database is never committed. Point{' '}
+            <code>YW_DB_PATH</code> somewhere else to move it.
+          </GuideCallout>
+          <GuideCallout title="How the code reaches it" icon="file">
+            <code>better-sqlite3</code>, synchronously, with no ORM and no query builder. Every
+            statement lives behind the <code>ApplicationStore</code> interface in{' '}
+            <code>api/src/store.ts</code>. Route modules are handed a store and never open a
+            connection themselves.
+          </GuideCallout>
+          <GuideCallout title="Why it is boxed in" icon="info">
+            SQLite stands in for the real application&apos;s SQL Server. Because{' '}
+            <code>store.ts</code> is the only module that imports the driver, changing engine is a
+            one-file change and the routes never notice.
+          </GuideCallout>
+        </div>
+
+        <h3>Where it lives in code</h3>
+        <ul className="guide-steps">
+          <li>
+            <code>database/schema.sql</code> — the whole schema: ten tables and five indexes. Every
+            statement is <code>CREATE ... IF NOT EXISTS</code>, so re-applying it is safe.
+          </li>
+          <li>
+            <code>scripts/setup.ts</code> — run by <code>npm run setup</code>. Creates the file,
+            applies the schema, then seeds the reference data and the four practice users.
+          </li>
+          <li>
+            <code>api/src/store.ts</code> — <code>ApplicationStore</code> is the contract,{' '}
+            <code>SqliteApplicationStore</code> the implementation. It sets{' '}
+            <code>journal_mode = WAL</code> and <code>foreign_keys = ON</code>, and runs a small
+            idempotent migration so a database made before a column existed still opens.
+          </li>
+          <li>
+            <code>api/src/app.ts</code> — builds one store per process and passes it to every route
+            module.
+          </li>
+          <li>
+            <code>api/src/config.ts</code> — reads <code>YW_DB_PATH</code>, defaulting to{' '}
+            <code>./data/practice-probe-db.sqlite</code>.
+          </li>
+        </ul>
+
+        <h3>What the tables hold</h3>
+        <ul className="guide-steps">
+          <li>
+            <strong>Seeded reference data</strong> — <code>app_user</code>, <code>facility</code>,{' '}
+            <code>work_center</code>, <code>device</code>, <code>test_program</code>. These exist
+            before you do anything and are never created by an upload.
+          </li>
+          <li>
+            <strong>Created only by an upload</strong> — <code>lot</code>, <code>upload</code>,{' '}
+            <code>wafer</code>, <code>die</code>, <code>upload_error</code>. A freshly seeded
+            database holds no wafers at all.
+          </li>
+          <li>
+            <code>wafer</code> carries <code>part_count</code>, <code>pass_count</code> and{' '}
+            <code>yield</code>. <code>die</code> carries one row per die, with <code>x</code>,{' '}
+            <code>y</code>, <code>hard_bin</code>, <code>soft_bin</code> and{' '}
+            <code>pass_fail_flag</code>.
+          </li>
+          <li>
+            <code>upload</code> keeps the original bytes and their SHA-256 next to the row counts,
+            so any parse result can be traced back to the exact file that produced it.
+          </li>
+        </ul>
+
+        <Alert tone="info">
+          Cluster detection and bin pareto are computed per request and never stored, so{' '}
+          <code>die</code> is the independent truth when you check a calculated result. Count the
+          die rows yourself rather than trusting the number the screen just rendered.
+        </Alert>
+
+        <CommandBlock
+          label="Re-seed after deleting data/practice-probe-db.sqlite*"
+          command="npm run setup --prefix probe-lab-app"
+        />
+
+        <Checklist
+          prefix="database"
+          items={[
+            'Find data/practice-probe-db.sqlite after the first run',
+            'Read database/schema.sql end to end',
+            'Trace one API route down to its store method',
+            'Re-seed the database from scratch',
+            'Check a wafer yield against its die rows',
+          ]}
+          completed={completed}
+          toggle={toggle}
+        />
+      </CardBody>
+    </Card>
   );
 }

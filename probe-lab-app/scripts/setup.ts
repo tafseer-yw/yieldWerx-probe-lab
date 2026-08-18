@@ -58,18 +58,27 @@ function seedReferenceData(db: Database.Database): void {
   insertProgram.run(randomUUID(), deviceId2, 'PROBE-PGM-2', 'Probe Practice Program 2');
 }
 
+/*
+ * Fixed ids rather than randomUUID(). A JWT names its user by id and lives for
+ * eight hours, so minting a new id on every re-seed orphans any token still in a
+ * browser: reads keep working, and the first write fails on the app_user foreign
+ * key. The four practice accounts are well known and stable, so their ids are too.
+ */
+const seededUsers = [
+  { username: 'viewer', role: 'viewer', userId: '9b1f1e00-0000-4000-8000-000000000001' },
+  { username: 'dev', role: 'dev', userId: '9b1f1e00-0000-4000-8000-000000000002' },
+  { username: 'qa', role: 'qa', userId: '9b1f1e00-0000-4000-8000-000000000003' },
+  { username: 'admin', role: 'admin', userId: '9b1f1e00-0000-4000-8000-000000000004' },
+] as const;
+
 async function seedUsers(db: Database.Database): Promise<void> {
   const insert = db.prepare(
     'INSERT OR IGNORE INTO app_user (user_id, username, password_hash, role) VALUES (?, ?, ?, ?)',
   );
-  const [viewer, engineer, admin] = await Promise.all([
-    hashPassword('viewer'),
-    hashPassword('engineer'),
-    hashPassword('admin'),
-  ]);
-  insert.run(randomUUID(), 'viewer', viewer, 'viewer');
-  insert.run(randomUUID(), 'engineer', engineer, 'engineer');
-  insert.run(randomUUID(), 'admin', admin, 'admin');
+  const hashes = await Promise.all(seededUsers.map((user) => hashPassword(user.username)));
+  for (const [index, user] of seededUsers.entries()) {
+    insert.run(user.userId, user.username, hashes[index], user.role);
+  }
 }
 
 async function main(): Promise<void> {
@@ -89,7 +98,7 @@ async function main(): Promise<void> {
   db.close();
 
   process.stdout.write(`practice-probe-db ready at ${dbPath}\n`);
-  process.stdout.write('Seeded users: viewer/viewer, engineer/engineer, admin/admin\n');
+  process.stdout.write('Seeded users: viewer/viewer, dev/dev, qa/qa, admin/admin\n');
 }
 
 main().catch((error: unknown) => {

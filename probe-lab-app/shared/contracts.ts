@@ -4,7 +4,7 @@
  * names and error codes so PROBE scenarios transfer.
  */
 
-export const userRoles = ['viewer', 'engineer', 'admin'] as const;
+export const userRoles = ['viewer', 'dev', 'qa', 'admin'] as const;
 export type UserRole = (typeof userRoles)[number];
 
 export const uploadStatuses = [
@@ -289,7 +289,7 @@ export const productBrand = {
   company: 'yieldWerx',
   name: 'yieldWerx PROBE Lab',
   shortName: 'PROBE Lab',
-  subtitle: 'Hands-on PROBE practice for QA and Engineering',
+  subtitle: 'Hands-on PROBE practice for Dev and QA',
   slug: 'yieldwerx-probe-lab',
 } as const;
 

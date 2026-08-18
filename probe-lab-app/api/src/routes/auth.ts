@@ -50,7 +50,7 @@ export async function registerAuthRoutes(
                 properties: {
                   id: { type: 'string' },
                   username: { type: 'string' },
-                  role: { type: 'string', enum: ['viewer', 'engineer', 'admin'] },
+                  role: { type: 'string', enum: ['viewer', 'dev', 'qa', 'admin'] },
                 },
               },
             },
