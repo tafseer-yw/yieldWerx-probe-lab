@@ -1659,8 +1659,9 @@ function GettingStarted({ completed, toggle }: ChecklistProps): ReactElement {
               <code>EADDRINUSE</code> on 3000 or 5000
             </dt>
             <dd>
-              An earlier run still holds the port. Stop it, or find it with{' '}
-              <code>lsof -i :5000</code>.
+              An earlier run still holds the port. Find it with{' '}
+              <code>netstat -ano | findstr :5000</code> on Windows, or <code>lsof -i :5000</code> on
+              macOS and Linux, then stop that process.
             </dd>
           </div>
           <div className="guide-arg">
