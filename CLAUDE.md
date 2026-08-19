@@ -24,8 +24,9 @@ offline; `npm test` starts the app and runs the BDD suite.
 ## PROBE is the authority, not this repo
 
 Skills and agents come from the **PROBE plugin**, not from this repository.
-`yw@yieldwerx` (`https://github.com/tafseer-yw/yieldwerx-probe`) supplies 34
-`yw:*` skills and specialist agents across a development track and a QA track.
+`yw@yieldwerx` (`https://github.com/tafseer-yw/yieldwerx-probe`) supplies 42
+`yw:*` skills and 17 specialist agents across a development track, a QA track,
+and skills shared by both.
 This repository owns its code, tests, rules, configuration, ledgers, and
 evidence. `.claude/settings.json` and `.claude/rules/` are the only
 repository-owned Claude assets.
@@ -74,13 +75,25 @@ requested PROBE stage. Work on a feature starts by reading its ledger:
 ## PROBE delivery tracks
 
 PROBE runs development-first, then QA. The stages and their `/yw:` skills are
-defined in the plugin (`vendor/probe/docs/SKILL-USAGE.md`); the bars are
-predicates, not signatures.
+defined in the plugin (`vendor/probe/docs/SKILL-USAGE.md`).
 
-- **Development track** — discern → draft → build → critique → certify.
-- **QA track** — specify → codify → automate → attest → promote. The Cribrum
-  bar (closes QA) opens when every criterion traces to a passing scenario or is
-  deferred with a reason, and the suite is green three consecutive times.
+- **Development track** — PRD → spec analysis → tech design → build → unit
+  tests → review → ship.
+- **QA track** — spec analysis → cases → Design Gate → recon → scripts →
+  green run → Merge Gate → promote → Ops Gate.
+- Both tracks start from the **same** `spec-analysis.md`; `/yw:probe-spec` is
+  shared, and whoever runs it second reads the existing analysis rather than
+  producing a second opinion.
+
+**A gate is a record of a human decision — nothing else.** There are exactly
+three (Design, Merge, Ops). Each assembles an evidence digest of facts, presents
+it, records a named human's approval with a timestamp, and unlocks the next
+stage. It computes no verdict and blocks on nothing, so there is nothing to
+waive, bypass, or override — all of those mechanisms were removed in PROBE 3.0.
+Approving with gaps visible is a legitimate decision and is recorded as exactly
+that; removing a gap from a digest to make the decision look cleaner is
+falsified evidence. Authority:
+`vendor/probe/plugins/yieldwerx-probe/references/governance/human-gates.md`.
 
 Working artifacts: `.probe/artifacts/<feature>/<stage>/` (gitignored). Permanent
 trail: `docs/qa/<feature>/` (committed).
