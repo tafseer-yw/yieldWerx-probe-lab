@@ -4,12 +4,14 @@ import {
   reportBinSpecifications,
   reportBinTypes,
   reportSortValues,
+  type BinParetoOptions,
   type BinParetoResponse,
 } from '../../../shared/contracts.js';
 import { deriveBinPareto } from '../bin-pareto.js';
+import { binParetoCsvFilename, binParetoToCsv } from '../bin-pareto-csv.js';
 import { apiError, requireRole } from '../security.js';
 import type { ApplicationStore } from '../store.js';
-import { errorResponseSchema } from './schemas.js';
+import { binParetoQuerystringSchema, errorResponseSchema } from './schemas.js';
 
 interface BinParetoQuery {
   binType?: string;
@@ -92,6 +94,20 @@ export async function registerReportRoutes(
   app: FastifyInstance,
   store: ApplicationStore,
 ): Promise<void> {
+  /**
+   * One place where the report's defaults live. Both operations call it, so the
+   * exported file cannot silently answer a different question from the screen
+   * it claims to reproduce.
+   */
+  function resolveBinParetoOptions(query: BinParetoQuery): BinParetoOptions {
+    return {
+      binType: (query.binType ?? 'Hard Bin') as BinParetoOptions['binType'],
+      specifyBins: (query.specifyBins ?? 'Failed Bins Only') as BinParetoOptions['specifyBins'],
+      sortBy: (query.sortBy ?? 'Bin Occurrence') as BinParetoOptions['sortBy'],
+      customBins: parseCustomBins(query.customBins),
+    };
+  }
+
   app.get<{
     Params: { waferSequence: number };
     Querystring: BinParetoQuery;
@@ -109,16 +125,7 @@ export async function registerReportRoutes(
           required: ['waferSequence'],
           properties: { waferSequence: { type: 'integer', minimum: 1 } },
         },
-        querystring: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            binType: { type: 'string', enum: reportBinTypes },
-            specifyBins: { type: 'string', enum: reportBinSpecifications },
-            sortBy: { type: 'string', enum: reportSortValues },
-            customBins: { type: 'string', maxLength: 255 },
-          },
-        },
+        querystring: binParetoQuerystringSchema,
         response: {
           200: binParetoResponseSchema,
           400: errorResponseSchema,
@@ -131,13 +138,7 @@ export async function registerReportRoutes(
     async (request) => {
       const wafer = await store.getWafer(request.params.waferSequence);
       if (!wafer) throw apiError(404, 'WAFER_NOT_FOUND', 'Wafer was not found.');
-      const options = {
-        binType: (request.query.binType ?? 'Hard Bin') as 'Hard Bin' | 'Soft Bin',
-        specifyBins: (request.query.specifyBins ?? 'Failed Bins Only') as
-          'All Bins' | 'Failed Bins Only' | 'Custom',
-        sortBy: (request.query.sortBy ?? 'Bin Occurrence') as 'Bin Occurrence' | 'Bin Number',
-        customBins: parseCustomBins(request.query.customBins),
-      };
+      const options = resolveBinParetoOptions(request.query);
       try {
         return deriveBinPareto(wafer, wafer.dies, options);
       } catch (error) {
@@ -147,6 +148,62 @@ export async function registerReportRoutes(
           error instanceof Error ? error.message : 'Invalid report options.',
         );
       }
+    },
+  );
+
+  app.get<{
+    Params: { waferSequence: number };
+    Querystring: BinParetoQuery;
+  }>(
+    '/api/reports/wafers/:waferSequence/bin-pareto.csv',
+    {
+      /* The same guard as the report, by design: both return the same numbers,
+         so a separate rule here would be a security defect waiting to happen. */
+      preHandler: requireRole('viewer'),
+      schema: {
+        tags: ['Reports'],
+        summary: 'Download the bin pareto for a wafer as CSV',
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: 'object',
+          required: ['waferSequence'],
+          properties: { waferSequence: { type: 'integer', minimum: 1 } },
+        },
+        querystring: binParetoQuerystringSchema,
+        response: {
+          200: { type: 'string', description: 'The report as comma-separated text.' },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const wafer = await store.getWafer(request.params.waferSequence);
+      if (!wafer) throw apiError(404, 'WAFER_NOT_FOUND', 'Wafer was not found.');
+      const options = resolveBinParetoOptions(request.query);
+
+      let report;
+      try {
+        report = deriveBinPareto(wafer, wafer.dies, options);
+      } catch (error) {
+        throw apiError(
+          400,
+          'INVALID_REPORT_OPTIONS',
+          error instanceof Error ? error.message : 'Invalid report options.',
+        );
+      }
+
+      /* Build the whole document before replying. A failure must produce the
+         route's normal error response, never a 200 carrying a partial file —
+         a truncated export that looks successful is the worst outcome here. */
+      const csv = binParetoToCsv(report, options);
+      const filename = binParetoCsvFilename(report, options, new Date());
+      return reply
+        .header('content-type', 'text/csv; charset=utf-8')
+        .header('content-disposition', `attachment; filename="${filename}"`)
+        .send(csv);
     },
   );
 }

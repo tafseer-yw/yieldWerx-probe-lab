@@ -68,6 +68,8 @@ export function BinParetoPage(): ReactElement {
   const [customBins, setCustomBins] = useState('');
   const [request, setRequest] = useState<ReportRequest | null>(null);
   const [formError, setFormError] = useState<string>();
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string>();
 
   const query = useQuery({
     queryKey: ['bin-pareto', request],
@@ -82,6 +84,41 @@ export function BinParetoPage(): ReactElement {
   });
 
   const report: BinParetoResponse | undefined = query.data;
+
+  /**
+   * Save the report currently on screen.
+   *
+   * Uses the same `request` the report was fetched with, not the form's current
+   * values — the form can be edited after a report is run, and downloading the
+   * options someone has half-typed rather than the table they are looking at is
+   * exactly the mismatch this feature exists to prevent.
+   */
+  const onDownload = async (): Promise<void> => {
+    if (!request) return;
+    setDownloading(true);
+    setDownloadError(undefined);
+    try {
+      const { filename, blob } = await api.downloadBinParetoCsv(request.waferSequence, {
+        binType: request.binType,
+        specifyBins: request.specifyBins,
+        sortBy: request.sortBy,
+        customBins: request.customBins,
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      /* Release the object URL once the browser has taken the download. */
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setDownloadError(errorMessage(error));
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const onSubmit = (event: FormEvent): void => {
     event.preventDefault();
@@ -233,7 +270,24 @@ export function BinParetoPage(): ReactElement {
               subtitle={`${reportOptionLabel(report.options.binType)} · ${reportOptionLabel(report.options.specifyBins)} · sorted by ${reportOptionLabel(report.options.sortBy).toLowerCase()}`}
               help={help.binLoss}
               helpTitle="Bin loss"
+              actions={
+                <button
+                  type="button"
+                  className="btn"
+                  data-testid="bin-pareto-download-csv"
+                  onClick={() => void onDownload()}
+                  disabled={downloading}
+                >
+                  <Icon name="download" size={14} />
+                  {downloading ? 'Preparing…' : 'Download CSV'}
+                </button>
+              }
             />
+            {downloadError ? (
+              <CardBody>
+                <Alert tone="error">{downloadError}</Alert>
+              </CardBody>
+            ) : null}
             {report.bins.length === 0 ? (
               <EmptyState
                 icon="chart"
@@ -247,7 +301,7 @@ export function BinParetoPage(): ReactElement {
                 </CardBody>
                 <CardBody tight>
                   <div className="table-wrap">
-                    <table className="data">
+                    <table className="data" data-testid="bin-pareto-table">
                       <thead>
                         <tr>
                           <th className="num" scope="col">
@@ -265,7 +319,7 @@ export function BinParetoPage(): ReactElement {
                           </th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody data-testid="bin-pareto-rows">
                         {report.bins.map((bin) => (
                           <tr key={bin.binNumber}>
                             <td>

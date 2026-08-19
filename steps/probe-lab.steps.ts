@@ -252,7 +252,7 @@ When('the QA user opens the PROBE guide', async ({ page }) => {
 Then(
   'the guide covers setup, the database, plugins, the Dev track, and the QA track',
   async ({ page }) => {
-    await expect(page.getByRole('heading', { name: 'Get the lab running' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Install and run the lab' })).toBeVisible();
 
     await page.getByRole('button', { name: /Database/u }).click();
     await expect(page.getByRole('heading', { name: 'The practice database' })).toBeVisible();
@@ -264,12 +264,16 @@ Then(
     await page.getByRole('button', { name: /Dev track/u }).click();
     await expect(page.getByRole('heading', { name: 'Dev track', exact: true })).toBeVisible();
     await expect(
-      page.getByText('/yw:build-feature <feature-slug> --requirement <path>'),
+      page.getByText('/yw:build-feature bin-pareto-export --stack node-ts-spa --layer backend'),
     ).toBeVisible();
 
     await page.getByRole('button', { name: /QA track/u }).click();
     await expect(page.getByRole('heading', { name: 'QA track', exact: true })).toBeVisible();
-    await expect(page.getByText('/yw:probe-spec <feature-slug> <approved-spec>')).toBeVisible();
+    await expect(
+      page.getByText(
+        '/yw:probe-spec bin-pareto-export docs/PRDs/bin-pareto-export/prd-signed-off.md',
+      ),
+    ).toBeVisible();
   },
 );
 
