@@ -1,0 +1,74 @@
+# Jenkins Configuration-as-Code for the local PROBE Lab controller. Defines the
+# admin user and the pipeline job inline, so `jenkins:up` yields a ready-to-run
+# controller with no manual clicking and no seed file to keep in sync.
+jenkins:
+  systemMessage: "PROBE Lab — local CI. One job: probe-lab-e2e."
+  numExecutors: 1
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "${JENKINS_ADMIN_USER:-admin}"
+          password: "${JENKINS_ADMIN_PASSWORD:-admin}"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+
+tool:
+  allure:
+    installations:
+      - name: "allure"
+        home: "/opt/allure-2.34.1"
+
+unclassified:
+  location:
+    url: "http://localhost:8080/"
+
+jobs:
+  - script: |
+      pipelineJob('probe-lab-e2e') {
+        description('PROBE Lab quality gates, tests, and Allure report — the whole local run under CI.')
+        definition {
+          cps {
+            sandbox(true)
+            script('''
+              pipeline {
+                agent any
+                options { timestamps(); timeout(time: 30, unit: 'MINUTES') }
+                stages {
+                  stage('Sync workspace') {
+                    steps {
+                      // Copy the read-only mounted source into the job workspace,
+                      // minus heavy/machine-specific dirs, so the build is
+                      // hermetic and reflects local changes with no git push.
+                      sh """
+                        rsync -a --delete \\
+                          --exclude node_modules --exclude probe-lab-app/node_modules \\
+                          --exclude .features-gen --exclude test-results --exclude reports \\
+                          --exclude .git --exclude probe-lab-app/data \\
+                          /workspace-src/ "\\$WORKSPACE"/
+                      """
+                    }
+                  }
+                  stage('Install') {
+                    steps { sh 'npm ci'; sh 'npx playwright install chromium' }
+                  }
+                  stage('Quality gates') {
+                    steps { sh 'npm run lint'; sh 'npm run typecheck'; sh 'npm run bddgen' }
+                  }
+                  stage('Tests') {
+                    steps { sh 'npm test' }
+                  }
+                }
+                post {
+                  always {
+                    allure commandline: 'allure', includeProperties: false, results: [[path: 'reports/allure-results']]
+                    junit testResults: 'reports/junit.xml', allowEmptyResults: true
+                    archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true
+                  }
+                }
+              }
+            '''.stripIndent())
+          }
+        }
+      }

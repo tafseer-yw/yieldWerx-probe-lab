@@ -23,7 +23,7 @@ coverage/
 
 # Local Jenkins-in-Docker sandbox (docs/local-jenkins.md) — personal/local-only,
 # not shared via git. The `jenkins:*` npm scripts in package.json stay tracked.
-ci/local/
+# ci/local/ holds the committed local-Jenkins setup (Dockerfile, JCasC, compose).
 
 # Transient PR-clean working copy
 .tmp-pr-clean/

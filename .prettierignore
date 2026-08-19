@@ -16,3 +16,4 @@ demo-app/wafer-viewer/index.html
 # maintained by the probe-academy-maintainer agent — don't fight its output
 docs/probe-academy.html
 CLAUDECODEBOOTSTRAPPROMPT.md
+probe-lab-app/web/src/skillsContent.generated.ts

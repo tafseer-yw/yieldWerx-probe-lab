@@ -84,6 +84,15 @@ test('the qa track covers API automation, performance, and security', () => {
     assessmentCatalogue.some((entry) => entry.id === 'qa-12' && /visual/i.test(entry.title)),
     'qa track must include a visual-regression assessment',
   );
+  const capstone = assessmentCatalogue.find((entry) => entry.id === 'qa-20');
+  assert.ok(
+    /jenkins/i.test(capstone?.mission ?? ''),
+    'the QA capstone must run a local Jenkins build',
+  );
+  assert.ok(
+    /allure/i.test(capstone?.mission ?? ''),
+    'the QA capstone must produce an Allure report',
+  );
 });
 
 test('scoring: pass adds points, a standing fail subtracts half, floor is zero', () => {
@@ -93,18 +102,18 @@ test('scoring: pass adds points, a standing fail subtracts half, floor is zero',
   assert.equal(
     scoreResults([
       { assessmentId: 'dev-01', outcome: 'passed' }, // +10
-      { assessmentId: 'qa-20', outcome: 'failed' }, //  −30 (expert 60 → penalty 30)
+      { assessmentId: 'qa-20', outcome: 'failed' }, //  −48 (expert 95 → penalty 48)
       { assessmentId: 'qa-01', outcome: 'passed' }, //  +10
     ]),
     0,
-    '10 + 10 − 30 floors at 0',
+    '10 + 10 − 48 floors at 0',
   );
   assert.equal(
     scoreResults([
-      { assessmentId: 'dev-15', outcome: 'passed' }, // +60
+      { assessmentId: 'dev-15', outcome: 'passed' }, // +95
       { assessmentId: 'dev-01', outcome: 'failed' }, //  −5
     ]),
-    55,
+    90,
   );
   // Unknown ids degrade to nothing rather than throwing.
   assert.equal(scoreResults([{ assessmentId: 'renamed-away', outcome: 'passed' }]), 0);
@@ -118,13 +127,13 @@ test('levels: thresholds hold, and the top is reachable without perfection', () 
   assert.equal(nextLevelAfter(620), null);
   assert.equal(nextLevelAfter(0)?.minPoints, 40);
   // Hand check of the maximum:
-  //   dev  = 3×10 + 6×20 + 5×35 + 1×60 = 385
-  //   qa   = 3×10 + 7×20 + 9×35 + 1×60 = 545
-  assert.equal(MAX_ASSESSMENT_SCORE, 930);
+  //   dev  = 3×10 + 6×20 + 5×35 + 1×95 = 420
+  //   qa   = 3×10 + 7×20 + 9×35 + 1×95 = 580
+  assert.equal(MAX_ASSESSMENT_SCORE, 1000);
   const top = ASSESSMENT_LEVELS[ASSESSMENT_LEVELS.length - 1]!;
   assert.ok(top.minPoints < MAX_ASSESSMENT_SCORE, 'top level must not demand a perfect score');
   // Effort points are what the catalogue advertises.
-  assert.deepEqual(EFFORT_POINTS, { starter: 10, core: 20, advanced: 35, expert: 60 });
+  assert.deepEqual(EFFORT_POINTS, { starter: 10, core: 20, advanced: 35, expert: 95 });
   assert.equal(penaltyFor({ effort: 'advanced' }), 18, 'ceil(35 / 2)');
 });
 
@@ -192,7 +201,7 @@ test('the API records, de-accumulates, clears, and refuses what it should', asyn
     headers: asDev,
     payload: { outcome: 'passed' },
   });
-  assert.equal(retry.json().summary.score, 70);
+  assert.equal(retry.json().summary.score, 105);
   const capstone = retry
     .json()
     .assessments.find((candidate: { id: string }) => candidate.id === 'dev-15');
