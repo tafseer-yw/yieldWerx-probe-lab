@@ -8,13 +8,21 @@
     "node": ">=22.18"
   },
   "scripts": {
+    "presetup": "node ../scripts/ensure-deps.mjs app",
     "setup": "tsx scripts/setup.ts",
+    "predev:api": "node ../scripts/ensure-deps.mjs app",
     "dev:api": "tsx watch api/src/server.ts",
+    "predev:web": "node ../scripts/ensure-deps.mjs app",
     "dev:web": "vite --config web/vite.config.ts",
+    "predev": "node ../scripts/ensure-deps.mjs app",
     "dev": "concurrently -n api,web -c blue,green \"npm:dev:api\" \"npm:dev:web\"",
+    "prebuild": "node ../scripts/ensure-deps.mjs app",
     "build": "tsc --noEmit && vite build --config web/vite.config.ts",
+    "prestart": "node ../scripts/ensure-deps.mjs app",
     "start": "npm run setup && npm run dev",
+    "pretypecheck": "node ../scripts/ensure-deps.mjs app",
     "typecheck": "tsc --noEmit",
+    "pretest": "node ../scripts/ensure-deps.mjs app",
     "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
