@@ -1,6 +1,7 @@
 import { useState, type ReactElement, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
+import { MarkdownPreview } from './MarkdownPreview.js';
 import { Alert, Badge, Card, CardBody, CardHead, Icon } from './ui.js';
 
 type GuideSection = 'start' | 'database' | 'plugins' | 'cowork' | 'dev' | 'qa';
@@ -41,6 +42,14 @@ interface StepOutcome {
   detail: string;
   /** A short excerpt from the real artifact, copied verbatim. */
   sample?: string;
+  /**
+   * Set when the excerpt is Markdown, which is what most PROBE artifacts are.
+   * The reader can then switch between the source they will find in the file
+   * and the rendered document they would read — the raw form matters because
+   * it is what the skill actually writes, and the rendered form matters
+   * because it is how anyone will consume it.
+   */
+  format?: 'markdown';
   /** Where the real artifact lives, so a reader can open it. */
   path?: string;
 }
@@ -167,8 +176,9 @@ const sharedStart: TrackStep[] = [
       ran: true,
       detail:
         'Produced a PRD with two user stories, four open questions it refused to answer on its own, and a Terms table. Every story carries an "In plain words" line for readers with no wafer-test background.',
+      format: 'markdown',
       sample:
-        '### US-01 — Download the report I am looking at\n\n**As a** yield engineer, **I want** to download the bin pareto I have just run,\n**so that** I can put its numbers into a document without retyping them.\n\n**In plain words:** A pareto ranks the failure categories on a wafer from worst\nto least, so an engineer can see where most of the loss comes from. Today those\nnumbers live only on the screen. This gives a button that saves them as a file a\nspreadsheet can open.\n\n**Done means:**',
+        '### US-01 — Download the report I am looking at\n\n**As a** yield engineer, **I want** to download the bin pareto I have just run,\n**so that** I can put its numbers into a document without retyping them.\n\n**In plain words:** A pareto ranks the failure categories on a wafer from worst\nto least, so an engineer can see where most of the loss comes from. Today those\nnumbers live only on the screen. This gives a button that saves them as a file a\nspreadsheet can open.\n\n**Done means:**\n\n- A "Download CSV" button appears on the "Bin pareto" screen once a report has\n  been run.\n- The file holds one row per bin shown on screen, in the same order.\n- Each row carries the bin number, the bin name, the die count, the share of the\n  wafer, and the running share.\n- No button is offered before a report has been run.',
       path: 'docs/PRDs/bin-pareto-export/prd-draft.md',
     },
     example: '/yw:forge-prd bin-pareto-export "engineers retype pareto numbers by hand"',
@@ -218,6 +228,7 @@ const sharedStart: TrackStep[] = [
       ran: true,
       detail:
         'Produced four acceptance criteria (AC-01 to AC-04) and two testable categories, each with a plain-words explanation and a note on where to check it. These ids are used by every later step on both tracks.',
+      format: 'markdown',
       sample:
         '### AC-01 — Download the shown report as a file\n\n**Summary:** Verify that the engineer can download the bin pareto they have run.\n**In plain words:** A pareto ranks the failure categories on a wafer from worst to\nleast. This lets the engineer save exactly what the screen is showing as a file a\nspreadsheet can open, instead of copying the numbers by hand.\n**Format:** Workflow\n\n```gherkin\nGiven The user has run a report on the "Bin pareto" screen\nWhen The user clicks the "Download CSV" button\nThen A comma-separated file is saved\nAnd The file holds one row for each bin shown on the screen\nAnd The rows are in the same order as the screen\n```',
       path: '.probe/artifacts/bin-pareto-export/10-spec/spec-analysis.md',
@@ -381,8 +392,10 @@ const devSteps: TrackStep[] = [
       ran: true,
       detail:
         "Mapped the change across four layers and wrote one decision record. It also refused to finish cleanly — it returned NEEDS_INFO because the PRD's four open questions were still unanswered, and named which ones blocked what.",
+      format: 'markdown',
       sample:
-        '| Layer | Change | Grounding |\n| ----- | ------ | --------- |\n| `service/` route | Add `GET /api/reports/wafers/\n:waferSequence/bin-pareto.csv`, same query parameters as the\nexisting report route | verified-in-code: `routes/reports.ts:100` |\n| `service/` domain | Reuse `deriveBinPareto()` unchanged; add a\nformatter | verified-in-code: `bin-pareto.ts:21` |\n\n## Closing state\n\n`NEEDS_INFO` — four open questions (Q-01..Q-04) control expected\nvalues, so `/build-feature` may start but cannot finish.',
+        '| Layer | Change | Grounding |\n| ----- | ------ | --------- |\n| `service/` route | Add `GET /api/reports/wafers/:waferSequence/bin-pareto.csv`, same query parameters as the existing report route | verified-in-code: `routes/reports.ts:100` serves the report at `/api/reports/wafers/:waferSequence/bin-pareto` |\n| `service/` domain | Reuse `deriveBinPareto()` unchanged; add a formatter that turns its result into comma-separated text | verified-in-code: `bin-pareto.ts:21` exports `deriveBinPareto` |\n\n## Closing state\n`NEEDS_INFO` — four open questions (Q-01, Q-02, Q-03, Q-05) control expected\nvalues in this design. Recommended answers are carried from the analysis and',
+      path: '.probe/artifacts/bin-pareto-export/60-design/tech-design.md',
     },
     example: '/yw:forge-tech-design bin-pareto-export --stack node-ts-spa',
     agents: 'tech-designer',
@@ -2019,13 +2032,51 @@ function WorkedExampleNote(): ReactElement {
 }
 
 function StepOutcomeBlock({ outcome }: { outcome: StepOutcome }): ReactElement {
+  /*
+   * Markdown excerpts open rendered, because that is how anyone actually reads
+   * a PRD or a spec analysis. The source stays one click away, since it is what
+   * the skill really writes and what the reader will open in their editor.
+   */
+  const [showSource, setShowSource] = useState(false);
+  const isMarkdown = outcome.format === 'markdown' && outcome.sample !== undefined;
+
   return (
     <div className={outcome.ran ? 'guide-outcome' : 'guide-outcome is-skipped'}>
-      <p className="guide-outcome-label">
-        {outcome.ran ? 'What it produced here' : 'Not exercised by this example'}
-      </p>
+      <div className="guide-outcome-head">
+        <p className="guide-outcome-label">
+          {outcome.ran ? 'What it produced here' : 'Not exercised by this example'}
+        </p>
+        {isMarkdown ? (
+          <div className="guide-view-toggle" role="group" aria-label="How to show this excerpt">
+            <button
+              type="button"
+              className={showSource ? '' : 'is-active'}
+              aria-pressed={!showSource}
+              onClick={() => setShowSource(false)}
+            >
+              Preview
+            </button>
+            <button
+              type="button"
+              className={showSource ? 'is-active' : ''}
+              aria-pressed={showSource}
+              onClick={() => setShowSource(true)}
+            >
+              Markdown
+            </button>
+          </div>
+        ) : null}
+      </div>
       <p className="guide-outcome-detail">{outcome.detail}</p>
-      {outcome.sample ? <pre className="guide-outcome-sample">{outcome.sample}</pre> : null}
+      {outcome.sample ? (
+        isMarkdown && !showSource ? (
+          <div className="guide-outcome-preview">
+            <MarkdownPreview source={outcome.sample} />
+          </div>
+        ) : (
+          <pre className="guide-outcome-sample">{outcome.sample}</pre>
+        )
+      ) : null}
       {outcome.path ? <p className="guide-outcome-path">{outcome.path}</p> : null}
     </div>
   );

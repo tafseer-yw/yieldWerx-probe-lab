@@ -269,6 +269,20 @@ Then(
       page.getByText('/yw:build-feature bin-pareto-export --stack node-ts-spa --layer backend'),
     ).toBeVisible();
 
+    /* Markdown excerpts offer both views. Preview is the default, because that
+       is how anyone reads a PRD; the source is what the skill actually wrote. */
+    const outcome = page.locator('.guide-outcome').first();
+    await expect(outcome.getByRole('button', { name: 'Preview' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await expect(outcome.locator('.md-preview')).toBeVisible();
+    await expect(outcome.getByText('### US-01', { exact: false })).toHaveCount(0);
+
+    await outcome.getByRole('button', { name: 'Markdown' }).click();
+    await expect(outcome.locator('.md-preview')).toHaveCount(0);
+    await expect(outcome.locator('.guide-outcome-sample')).toContainText('### US-01');
+
     await page.getByRole('button', { name: /QA track/u }).click();
     await expect(page.getByRole('heading', { name: 'QA track', exact: true })).toBeVisible();
     await expect(
