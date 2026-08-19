@@ -1,6 +1,7 @@
 schemaVersion: 1
-probeVersion: 2.13.0
+probeVersion: 3.1.0
 profile: playwright-bdd
+stacks: [node-ts-spa]
 
 # PROBE consumer config for the yieldWerx Playground repo. The PROBE plugin
 # (yw@yieldwerx, vendored at vendor/probe and registered in .claude/settings.json)
@@ -39,6 +40,3 @@ policies:
   testIdRequired: true
   wrongBusinessDataSeverity: blocker
 
-governance:
-  gates:
-    mode: active
