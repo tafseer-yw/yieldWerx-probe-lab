@@ -2479,6 +2479,16 @@ tr.is-clickable:hover td {
   margin: 10px 0 4px !important;
 }
 
+/* The sentence under an install step that says what the command just did, or
+   why it is a separate step. Sits tight under its CommandBlock so the two read
+   as one unit rather than as a command and an unrelated paragraph. */
+.guide-note {
+  margin: 8px 0 4px !important;
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
 /* Marks a skill both tracks use, so its appearance in both lists reads as
    deliberate rather than as a duplicate. */
 .guide-shared-tag {

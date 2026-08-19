@@ -75,6 +75,18 @@ export default tseslint.config(
     rules: { 'no-console': 'off' },
   },
   {
+    // Stand-alone Node scripts run by `node` directly, never imported by the
+    // suite. They may not import a package at all — scripts/ensure-deps.mjs
+    // exists to repair a missing dependency tree — so the Node globals are
+    // declared here rather than pulled in from the `globals` package, which
+    // would be one more thing that has to already be installed.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: { console: 'readonly', process: 'readonly' },
+    },
+    rules: { 'no-console': 'off' },
+  },
+  {
     files: ['steps/**/*.ts'],
     rules: {
       'no-console': 'off',
