@@ -225,6 +225,25 @@ docs/                  # PRDs (the 3 workflows' requirements) + index
 
 Open Claude Code **from this repo** — `.claude/settings.json` registers the `yieldwerx` marketplace and enables `yw@yieldwerx`, so the 42 `/yw:*` skills (probe-spec, forge-prd, forge-cases, gate-design, ask-yieldwerx, …) load. `probe.config.yaml` tells PROBE where `features`/`ledgers`/`test-data` live and which npm scripts to call (`bddgen`, `lint`, `typecheck`, `test`, `app:build`). Clone it to `vendor/probe` for offline reference — that path is gitignored, so it is local state you create, and its own docs then live in `vendor/probe/docs/`.
 
+## Case management and bug filing
+
+Push approved test cases to **AIO Tests** and file bugs to **Jira**. Both read
+secrets from `.env` only (never committed); verify reachability with
+`npm run check:connections`.
+
+- **AIO Tests** — conventions live in `config/aio-sync.json` (non-secret:
+  project key, the per-feature practice folder, the PRD path). The main sync is
+  the plugin's `probe aio sync`; `scripts/aio-*.ts` are manual helpers wired as
+  `npm run aio:verify` / `aio:meta` / `aio:tags` / `aio:history` / `aio:detail`
+  / `aio:dup` / `aio:dedupe`.
+- **Jira** — `npm run bug:sync` files bug candidates. Candidates come from the
+  `/yw:bug-report` skill and, automatically, from the Playwright reporter
+  (`src/core/bugCandidateReporter.ts`), which turns every failed scenario into a
+  deduplicated candidate under `.probe/artifacts/bug-sync/candidates/`. A
+  candidate is **held** until triaged (classification + severity) — automated
+  failures are never auto-filed. `bug:sync` is a dry run unless
+  `JIRA_SYNC_MODE=live`.
+
 ## Scripts
 
 | Command                                | Purpose                                               |

@@ -21,6 +21,12 @@ commands:
   typecheck: npm run typecheck
   runTests: npm run test
   build: npm run app:build
+  # Case management (AIO Tests) and bug filing (Jira). Secrets come from .env;
+  # verify reachability with `npm run check:connections`.
+  syncBugs: npm run bug:sync
+  aioVerify: npm run aio:verify
+  uiContract: npm run ui:contract
+  uiImpact: npm run ui:impact
 
 integrations:
   browser:

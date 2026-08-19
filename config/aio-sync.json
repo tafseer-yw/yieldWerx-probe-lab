@@ -1,0 +1,21 @@
+{
+  "_note": "Non-secret AIO Tests sync conventions for the PROBE Lab. Secrets (AIO_API_TOKEN, and AIO_EMAIL only when auth is 'basic') come from environment variables ONLY — never store a token here. AIO_API_BASE_URL and AIO_PROJECT_KEY env vars override the values below. Verify with `npm run check:connections`.",
+  "apiBaseUrl": "https://tcms.aiojiraapps.com/aio-tcms/api/v1",
+  "projectKey": "YWPD",
+  "auth": "aioauth",
+  "scriptType": "BDD/Gherkin",
+  "_folderTemplate_doc": "The {feature} placeholder puts each feature's cases in its own practice folder, so PROBE Lab practice cases never land among the real product test folders. Re-point this before syncing to a production case folder.",
+  "folderTemplate": "PROBE Lab Practice/{feature}",
+  "defaults": {
+    "status": "Published",
+    "type": "",
+    "owner": "",
+    "tags": ["probe-lab"],
+    "labels": []
+  },
+  "requirement": {
+    "_doc": "Where a feature's PRD lives, so a synced case can link back to its requirement. PROBE Lab keeps PRDs under docs/PRDs/<feature>/.",
+    "prdPathTemplate": "docs/PRDs/{feature}/prd-signed-off.md"
+  },
+  "requirementMap": {}
+}
