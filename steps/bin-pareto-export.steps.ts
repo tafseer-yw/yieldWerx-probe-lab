@@ -9,8 +9,18 @@
  * cannot fail.
  */
 import fs from 'node:fs';
+import path from 'node:path';
 
+import { REPO_ROOT } from '@core/paths';
 import { expect, Given, Then, When } from './fixtures';
+
+const SAMPLE_CSV = path.join(REPO_ROOT, 'probe-lab-app', 'database', 'sample-wafer.csv');
+
+/** A unique lot per run, so re-runs never trip the duplicate-wafer guard. */
+function sampleCsvWithUniqueLot(): Buffer {
+  const raw = fs.readFileSync(SAMPLE_CSV, 'utf-8');
+  return Buffer.from(raw.replaceAll('LOT-DEMO-01', `LOT-E2E-${Date.now()}`));
+}
 
 /** One bin row as the screen renders it, in the screen's own order. */
 interface ScreenRow {
@@ -80,12 +90,60 @@ function parseSavedFile(text: string): SavedFile {
   };
 }
 
-Given('a wafer with several failing bins is loaded', async ({ page }) => {
-  /* The admin sample-data dialog loads a known wafer, so the scenario does not
-     depend on whatever an earlier run happened to leave behind. */
-  await page.goto('/wafers');
-  await expect(page.getByRole('heading', { name: 'Wafers', level: 1 })).toBeVisible();
+const WAFER_SEQUENCE = 'bin-pareto-export:wafer-sequence';
+
+/**
+ * Create the wafer this feature reports on, rather than hoping one is there.
+ *
+ * The first version of this step navigated to the wafer list and asserted the
+ * heading, which established nothing — the scenarios then reported against a
+ * hardcoded sequence 1 and passed only while some earlier run happened to have
+ * left that wafer behind. They went red the moment the database was reseeded,
+ * which is the failure this step existed to prevent.
+ */
+Given('a wafer with several failing bins is loaded', async ({ page, scenarioState }) => {
+  await page.getByRole('link', { name: 'Upload data', exact: true }).click();
+  await page.waitForURL('**/upload');
+  await page.getByLabel('Device').selectOption('PROBE-DEV-1');
+  await expect(
+    page.getByRole('option', { name: 'PROBE-PGM-1 · Probe Practice Program 1' }),
+  ).toBeAttached();
+  await page.getByLabel('Test program').selectOption('PROBE-PGM-1');
+
+  const csv = sampleCsvWithUniqueLot();
+  const dataTransfer = await page.evaluateHandle((bytes: number[]) => {
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([new Uint8Array(bytes)], 'wafer.csv', { type: 'text/csv' }));
+    return transfer;
+  }, [...csv]);
+  await page.getByTestId('upload-dropzone').dispatchEvent('drop', { dataTransfer });
+  await expect(page.getByText('wafer.csv', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Upload' }).click();
+
+  /* Wait for the wafer to finish processing before reading its sequence: the
+     upload is queued, so the list is briefly empty of it. The sample wafer's
+     yield is the signal that this row is the one just uploaded. */
+  await page.getByRole('link', { name: 'Wafers', exact: true }).click();
+  await page.waitForURL('**/wafers');
+  await expect(
+    page
+      .getByRole('row')
+      .filter({ hasText: '80.00%' })
+      .first(),
+  ).toBeVisible({ timeout: 15_000 });
+
+  const cell = page.getByRole('row').nth(1).getByRole('cell').first();
+  const sequence = Number(await cell.textContent());
+  expect(Number.isInteger(sequence) && sequence > 0).toBeTruthy();
+  scenarioState.set(WAFER_SEQUENCE, sequence);
 });
+
+/** The wafer this scenario uploaded. */
+function waferSequence(scenarioState: Map<string, unknown>): string {
+  const value = scenarioState.get(WAFER_SEQUENCE);
+  expect(value, 'no wafer was uploaded in this scenario').toBeDefined();
+  return String(value);
+}
 
 When('the QA user opens the bin pareto screen', async ({ page }) => {
   await page.goto('/reports/bin-pareto');
@@ -96,18 +154,18 @@ Then('the {string} button is not offered', async ({ page }, label: string) => {
   await expect(page.getByRole('button', { name: label })).toHaveCount(0);
 });
 
-Given('the QA user has run a bin pareto report', async ({ page }) => {
+Given('the QA user has run a bin pareto report', async ({ page, scenarioState }) => {
   await page.goto('/reports/bin-pareto');
-  await page.getByLabel('Wafer sequence').fill('1');
+  await page.getByLabel('Wafer sequence').fill(waferSequence(scenarioState));
   await page.getByRole('button', { name: 'Run report' }).click();
   await expect(page.getByRole('heading', { name: 'Bin loss', level: 2 })).toBeVisible();
 });
 
 Given(
   'the QA user has run a bin pareto report with bin type {string} and bins to show {string}',
-  async ({ page }, binType: string, specifyBins: string) => {
+  async ({ page, scenarioState }, binType: string, specifyBins: string) => {
     await page.goto('/reports/bin-pareto');
-    await page.getByLabel('Wafer sequence').fill('1');
+    await page.getByLabel('Wafer sequence').fill(waferSequence(scenarioState));
     await page.getByLabel('Bin type').selectOption(binType);
     await page.getByLabel('Bins to show').selectOption(specifyBins);
     await page.getByRole('button', { name: 'Run report' }).click();
