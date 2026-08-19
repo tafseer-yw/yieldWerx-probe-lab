@@ -1,0 +1,25 @@
+# k6 runs in Docker (pinned version, no host install); the target is the
+# probe-lab app running on the HOST — start it first with `npm run app:dev`.
+# Docker reaches the host through host.docker.internal on macOS/Windows and
+# via the extra_hosts mapping below on Linux.
+services:
+  k6:
+    image: grafana/k6:2.0.0
+    command: ['run', '/performance/scenarios/wafer-reports.js']
+    environment:
+      PERF_BASE_URL: ${PERF_BASE_URL:-http://host.docker.internal:5000}
+      PERF_ENV: ${PERF_ENV:-local}
+      PERF_PROFILE: ${PERF_PROFILE:-smoke}
+      PERF_USERNAME: ${PERF_USERNAME:-qa}
+      PERF_PASSWORD: ${PERF_PASSWORD:-qa}
+      PERF_P95_MS: ${PERF_P95_MS:-750}
+      PERF_ALLOW_LOAD: ${PERF_ALLOW_LOAD:-false}
+      PERF_ALLOW_EXTERNAL: ${PERF_ALLOW_EXTERNAL:-false}
+      PERF_ALLOW_PRODUCTION: ${PERF_ALLOW_PRODUCTION:-false}
+      PERF_CHANGE_TICKET: ${PERF_CHANGE_TICKET:-}
+      PERF_SUMMARY_PATH: ${PERF_SUMMARY_PATH:-/reports/smoke-summary.json}
+    volumes:
+      - .:/performance:ro
+      - ../reports/k6:/reports
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'

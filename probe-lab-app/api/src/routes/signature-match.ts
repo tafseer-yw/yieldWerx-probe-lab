@@ -93,7 +93,7 @@ export async function registerSignatureMatchRoutes(
   app.get<{ Params: { waferSequence: number }; Reply: SignatureMatchResponse }>(
     '/api/wafers/:waferSequence/signature-match',
     {
-      preHandler: requireRole('viewer'),
+      onRequest: requireRole('viewer'),
       schema: {
         tags: ['Wafer triage'],
         summary: 'Generate the lightweight signature analytics used by Wafer triage',

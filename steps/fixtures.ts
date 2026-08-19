@@ -11,4 +11,15 @@ import { test } from '@core/fixtures';
 
 export const { Given, When, Then, Before } = createBdd(test);
 export { test };
-export { expect } from '@playwright/test';
+
+/*
+ * The odiff visual matcher lives on the SAME expect every step imports, so
+ * `expect(locator).toHaveScreenshotOdiff(...)` is available and typed wherever
+ * assertions happen. Importing from the package root also pulls in its global
+ * Matchers augmentation. Authority: docs/visual-regression.md (test-ops) and
+ * src/core/visual.ts here.
+ */
+import { expect as baseExpect } from '@playwright/test';
+import { toHaveScreenshotOdiff } from 'playwright-odiff';
+
+export const expect = baseExpect.extend({ toHaveScreenshotOdiff });

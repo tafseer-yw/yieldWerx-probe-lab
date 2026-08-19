@@ -26,6 +26,12 @@
       "@core/*": ["./src/core/*"]
     }
   },
-  "include": ["src/**/*.ts", "steps/**/*.ts", "scripts/**/*.ts", "playwright.config.ts"],
+  "include": [
+    "src/**/*.ts",
+    "steps/**/*.ts",
+    "scripts/**/*.ts",
+    "tests/**/*.ts",
+    "playwright.config.ts"
+  ],
   "exclude": ["node_modules", "dist", "test-results", ".features-gen", "probe-lab-app"]
 }

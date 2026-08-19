@@ -105,7 +105,7 @@ export async function registerSampleDataRoutes(
   app.get<{ Reply: SampleDataStatus }>(
     '/api/sample-data',
     {
-      preHandler: requireRole('viewer'),
+      onRequest: requireRole('viewer'),
       schema: {
         tags: ['Sample Data'],
         summary: 'List the sample wafers and which of them are loaded',
@@ -119,7 +119,7 @@ export async function registerSampleDataRoutes(
   app.post<{ Body: { keys?: string[] }; Reply: SampleDataStatus }>(
     '/api/sample-data',
     {
-      preHandler: requireRole('admin'),
+      onRequest: requireRole('admin'),
       schema: {
         tags: ['Sample Data'],
         summary: 'Load the named sample wafers, or all of them',
@@ -171,7 +171,7 @@ export async function registerSampleDataRoutes(
   app.delete<{ Querystring: { keys?: string }; Reply: SampleDataStatus }>(
     '/api/sample-data',
     {
-      preHandler: requireRole('admin'),
+      onRequest: requireRole('admin'),
       schema: {
         tags: ['Sample Data'],
         summary: 'Remove the named sample wafers, or all of them',

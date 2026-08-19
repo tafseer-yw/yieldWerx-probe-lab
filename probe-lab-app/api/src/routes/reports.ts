@@ -115,7 +115,7 @@ export async function registerReportRoutes(
   }>(
     '/api/reports/wafers/:waferSequence/bin-pareto',
     {
-      preHandler: requireRole('viewer'),
+      onRequest: requireRole('viewer'),
       schema: {
         tags: ['Reports'],
         summary: 'Get the bin pareto for a wafer',
@@ -159,7 +159,7 @@ export async function registerReportRoutes(
     {
       /* The same guard as the report, by design: both return the same numbers,
          so a separate rule here would be a security defect waiting to happen. */
-      preHandler: requireRole('viewer'),
+      onRequest: requireRole('viewer'),
       schema: {
         tags: ['Reports'],
         summary: 'Download the bin pareto for a wafer as CSV',

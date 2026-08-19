@@ -248,7 +248,8 @@ export function ParetoChart({ bins, height = 268 }: ParetoChartProps): ReactElem
 
   return (
     <div className="wafer-map">
-      <div className="chart-wrap" ref={wrapRef}>
+      {/* The visual-regression handle: the canvas and only the canvas. */}
+      <div className="chart-wrap" ref={wrapRef} data-testid="bin-pareto-chart">
         <canvas
           ref={canvasRef}
           role="img"

@@ -42,18 +42,19 @@ function createTestDatabase(): { directory: string; databasePath: string } {
 }
 
 test('the catalogue keeps its structural promises', () => {
-  assert.equal(assessmentCatalogue.length, 30);
+  assert.equal(assessmentCatalogue.length, 35);
+  const expectedCount = { dev: 15, qa: 20 };
   for (const track of ['dev', 'qa'] as const) {
     const entries = assessmentCatalogue.filter((entry) => entry.track === track);
-    assert.equal(entries.length, 15, `${track} track must have 15 assessments`);
-    // Ordered 1..15 with no gaps, so "first skills first" is real, not implied.
+    assert.equal(entries.length, expectedCount[track], `${track} track size`);
+    // Ordered 1..N with no gaps, so "first skills first" is real, not implied.
     assert.deepEqual(
       entries.map((entry) => entry.order).sort((a, b) => a - b),
-      Array.from({ length: 15 }, (_, index) => index + 1),
+      Array.from({ length: expectedCount[track] }, (_, index) => index + 1),
     );
   }
   const ids = new Set(assessmentCatalogue.map((entry) => entry.id));
-  assert.equal(ids.size, 30, 'ids must be unique — recorded results reference them');
+  assert.equal(ids.size, 35, 'ids must be unique — recorded results reference them');
   for (const entry of assessmentCatalogue) {
     assert.ok(entry.skills.length > 0, `${entry.id} names no skills`);
     assert.ok(
@@ -73,9 +74,16 @@ test('the qa track covers API automation, performance, and security', () => {
     '/yw:forge-api-tests',
     '/yw:forge-performance-tests',
     '/yw:forge-security-tests',
+    '/yw:scan-security',
   ]) {
     assert.ok(qaSkills.includes(required), `qa track must exercise ${required}`);
   }
+  // Visual regression is exercised too, via a @visual scenario the assessment
+  // describes; its skill is forge-scripts, so assert the visual assessment by id.
+  assert.ok(
+    assessmentCatalogue.some((entry) => entry.id === 'qa-12' && /visual/i.test(entry.title)),
+    'qa track must include a visual-regression assessment',
+  );
 });
 
 test('scoring: pass adds points, a standing fail subtracts half, floor is zero', () => {
@@ -85,7 +93,7 @@ test('scoring: pass adds points, a standing fail subtracts half, floor is zero',
   assert.equal(
     scoreResults([
       { assessmentId: 'dev-01', outcome: 'passed' }, // +10
-      { assessmentId: 'qa-15', outcome: 'failed' }, //  −30 (expert 60 → penalty 30)
+      { assessmentId: 'qa-20', outcome: 'failed' }, //  −30 (expert 60 → penalty 30)
       { assessmentId: 'qa-01', outcome: 'passed' }, //  +10
     ]),
     0,
@@ -109,8 +117,10 @@ test('levels: thresholds hold, and the top is reachable without perfection', () 
   assert.equal(levelForScore(620).name, 'Fab Master');
   assert.equal(nextLevelAfter(620), null);
   assert.equal(nextLevelAfter(0)?.minPoints, 40);
-  // Hand check of the maximum: per track 3×10 + 6×20 + 5×35 + 1×60 = 385.
-  assert.equal(MAX_ASSESSMENT_SCORE, 770);
+  // Hand check of the maximum:
+  //   dev  = 3×10 + 6×20 + 5×35 + 1×60 = 385
+  //   qa   = 3×10 + 7×20 + 9×35 + 1×60 = 545
+  assert.equal(MAX_ASSESSMENT_SCORE, 930);
   const top = ASSESSMENT_LEVELS[ASSESSMENT_LEVELS.length - 1]!;
   assert.ok(top.minPoints < MAX_ASSESSMENT_SCORE, 'top level must not demand a perfect score');
   // Effort points are what the catalogue advertises.
@@ -145,7 +155,7 @@ test('the API records, de-accumulates, clears, and refuses what it should', asyn
   // Fresh state: full catalogue, zero score, no standings yet.
   const fresh = await app.inject({ method: 'GET', url: '/api/assessments', headers: asDev });
   assert.equal(fresh.statusCode, 200);
-  assert.equal(fresh.json().assessments.length, 30);
+  assert.equal(fresh.json().assessments.length, 35);
   assert.equal(fresh.json().summary.score, 0);
   assert.deepEqual(fresh.json().standings, []);
 

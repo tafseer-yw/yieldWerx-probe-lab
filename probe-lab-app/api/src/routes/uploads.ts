@@ -158,7 +158,7 @@ export async function registerUploadRoutes(
     '/api/uploads',
     {
       // dev and qa share rank 2, so this admits both; only viewer is refused.
-      preHandler: requireRole('dev'),
+      onRequest: requireRole('dev'),
       bodyLimit: MAX_FILE_UPLOAD_BYTES,
       schema: {
         tags: ['Wafer Upload'],
@@ -213,7 +213,7 @@ export async function registerUploadRoutes(
   app.get<{ Querystring: HistoryQuery; Reply: UploadHistoryPage }>(
     '/api/uploads',
     {
-      preHandler: requireRole('viewer'),
+      onRequest: requireRole('viewer'),
       schema: {
         tags: ['Wafer Upload'],
         summary: 'List upload history',
@@ -259,7 +259,7 @@ export async function registerUploadRoutes(
   app.get<{ Params: { id: string }; Reply: UploadSummary }>(
     '/api/uploads/:id',
     {
-      preHandler: requireRole('viewer'),
+      onRequest: requireRole('viewer'),
       schema: {
         tags: ['Wafer Upload'],
         summary: 'Get upload status and counts',
@@ -283,7 +283,7 @@ export async function registerUploadRoutes(
   app.delete<{ Params: { id: string } }>(
     '/api/uploads/:id',
     {
-      preHandler: requireRole('admin'),
+      onRequest: requireRole('admin'),
       schema: {
         tags: ['Wafer Upload'],
         summary: 'Delete an upload and everything it created',
@@ -307,7 +307,7 @@ export async function registerUploadRoutes(
   app.get<{ Params: { id: string }; Querystring: PageQuery; Reply: UploadErrorPage }>(
     '/api/uploads/:id/errors',
     {
-      preHandler: requireRole('viewer'),
+      onRequest: requireRole('viewer'),
       schema: {
         tags: ['Wafer Upload'],
         summary: 'Get the paged validation report for an upload',

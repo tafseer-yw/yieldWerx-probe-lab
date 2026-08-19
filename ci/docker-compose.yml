@@ -1,0 +1,21 @@
+# Container-pinned visual runs. Everything — app, API, browser — runs inside the
+# container, so nothing on the host but Docker is required.
+#
+#   npm run test:visual:baseline   # (re)generate baselines — the ONLY sanctioned way
+#   npm run test:visual            # verify against committed baselines
+services:
+  e2e:
+    build:
+      context: ..
+      dockerfile: ci/Dockerfile
+    environment:
+      - CI=1
+      - E2E_IN_CONTAINER=1
+      - LOG_FORMAT=json
+    volumes:
+      # Baselines + report evidence back to the host, so new baselines land in
+      # git and the expected/actual/diff images are reviewable after a run.
+      - ../tests/visual:/e2e/tests/visual
+      - ../test-results:/e2e/test-results
+      - ../reports:/e2e/reports
+    ipc: host

@@ -26,7 +26,7 @@ export async function registerReferenceRoutes(
   app.get<{ Reply: ReferenceValue[] }>(
     '/api/reference/devices',
     {
-      preHandler: requireRole('viewer'),
+      onRequest: requireRole('viewer'),
       schema: {
         tags: ['Reference Data'],
         summary: 'List devices available for wafer upload',
@@ -44,7 +44,7 @@ export async function registerReferenceRoutes(
   app.get<{ Querystring: { device: string }; Reply: ReferenceValue[] }>(
     '/api/reference/test-programs',
     {
-      preHandler: requireRole('viewer'),
+      onRequest: requireRole('viewer'),
       schema: {
         tags: ['Reference Data'],
         summary: 'List test programs for a device',

@@ -437,7 +437,8 @@ export function WaferMap({
         </div>
       </div>
 
-      <div className="wafer-canvas-wrap" ref={wrapRef}>
+      {/* The visual-regression handle: the canvas and only the canvas. */}
+      <div className="wafer-canvas-wrap" ref={wrapRef} data-testid="wafer-map-chart">
         <canvas
           ref={canvasRef}
           role="img"
