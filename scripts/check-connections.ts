@@ -168,25 +168,63 @@ function diagnoseTransport(message: string, host: string): string {
 /* ------------------------------------------------------------------ */
 
 /**
- * AIO Tests, verified against its published OpenAPI document
- * (https://tcms.aiojiraapps.com/aio-tcms/api/v1/openapi.json):
+ * Non-secret AIO settings, if the repo keeps them in a committed file. This is
+ * the shape test-ops/e2e uses (config/aio-sync.json: apiBaseUrl, projectKey,
+ * auth), and the same precedence — the file supplies conventions, the
+ * environment supplies secrets and overrides.
  *
- *   GET /project/{jiraProjectId}/config   — "Get AIO Tests specific Project
- *   configuration". The path parameter is documented as "Jira project key or
- *   id", and the operation declares 200 / 400 / 401 / 404, which is exactly the
- *   spread needed to tell a bad token from a bad project key.
+ * The BOM strip is not defensive padding. That file is edited on Windows and
+ * carries a UTF-8 BOM; JSON.parse rejects it outright, which silently broke
+ * every read-back helper in test-ops while the plugin's own loader kept working
+ * because it strips one.
+ */
+function aioFileConfig(): { apiBaseUrl?: string; projectKey?: string; auth?: string } {
+  const file = path.join(REPO_ROOT, 'config', 'aio-sync.json');
+  if (!fs.existsSync(file)) return {};
+  try {
+    const raw: unknown = JSON.parse(fs.readFileSync(file, 'utf-8').replace(/^\uFEFF/, ''));
+    if (typeof raw !== 'object' || raw === null) return {};
+    const o = raw as Record<string, unknown>;
+    return {
+      apiBaseUrl: typeof o.apiBaseUrl === 'string' ? o.apiBaseUrl : undefined,
+      projectKey: typeof o.projectKey === 'string' ? o.projectKey : undefined,
+      auth: typeof o.auth === 'string' ? o.auth : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * AIO Tests. The endpoint is the one test-ops/e2e has proven in the field:
  *
- * Auth is the `api` security scheme: an `Authorization` header carrying the
- * token with `AioAuth ` prepended. Basic is also accepted, which is what
- * AIO_AUTH_MODE=basic selects — that mode is the only one needing AIO_EMAIL.
+ *   GET /project/{jiraProjectId}/testcase?maxResults=1
+ *
+ * It is in the published OpenAPI document
+ * (https://tcms.aiojiraapps.com/aio-tcms/api/v1/openapi.json), and it is the
+ * right probe rather than merely a reachable one: Case Sync's job is reading
+ * and writing test cases, so proving *case* access is proving the thing that
+ * matters. A project-config read can succeed while case access is denied.
+ * `maxResults=1` keeps it cheap on a project with thousands of cases.
+ *
+ * Auth is the spec's `api` security scheme: an `Authorization` header carrying
+ * the token with `AioAuth ` prepended. Basic is also accepted, which is what
+ * AIO_AUTH_MODE=basic selects — the only mode that needs AIO_EMAIL.
  */
 async function checkAio(): Promise<Result> {
   const lines: Line[] = [];
+  const file = aioFileConfig();
   const base = trimBase(
-    process.env.AIO_API_BASE_URL ?? 'https://tcms.aiojiraapps.com/aio-tcms/api/v1',
+    process.env.AIO_API_BASE_URL ??
+      file.apiBaseUrl ??
+      'https://tcms.aiojiraapps.com/aio-tcms/api/v1',
   );
-  const mode = (process.env.AIO_AUTH_MODE ?? 'aioauth').toLowerCase();
-  const required = ['AIO_API_TOKEN', 'AIO_PROJECT_KEY', ...(mode === 'basic' ? ['AIO_EMAIL'] : [])];
+  const mode = (process.env.AIO_AUTH_MODE ?? file.auth ?? 'aioauth').toLowerCase();
+  const required = [
+    'AIO_API_TOKEN',
+    ...(file.projectKey ? [] : ['AIO_PROJECT_KEY']),
+    ...(mode === 'basic' ? ['AIO_EMAIL'] : []),
+  ];
 
   const absent = missing(required);
   if (absent.length > 0) {
@@ -200,7 +238,7 @@ async function checkAio(): Promise<Result> {
   }
 
   const token = (process.env.AIO_API_TOKEN ?? '').trim();
-  const project = (process.env.AIO_PROJECT_KEY ?? '').trim();
+  const project = (process.env.AIO_PROJECT_KEY ?? file.projectKey ?? '').trim();
   const email = (process.env.AIO_EMAIL ?? '').trim();
 
   lines.push({ label: 'base URL', value: base });
@@ -224,7 +262,7 @@ async function checkAio(): Promise<Result> {
       ? `Basic ${Buffer.from(`${email}:${token}`).toString('base64')}`
       : `AioAuth ${token}`;
 
-  const url = `${base}/project/${encodeURIComponent(project)}/config`;
+  const url = `${base}/project/${encodeURIComponent(project)}/testcase?maxResults=1`;
   const res = await get(url, { Authorization: authorization });
 
   if (res.transportError) {
@@ -236,7 +274,7 @@ async function checkAio(): Promise<Result> {
     };
   }
 
-  lines.push({ label: 'GET …/project/<key>/config', value: String(res.status) });
+  lines.push({ label: 'GET …/testcase?maxResults=1', value: String(res.status) });
 
   if (res.status === 401) {
     return {
@@ -250,13 +288,22 @@ async function checkAio(): Promise<Result> {
           : 'Regenerate the token in AIO Tests → API Token and update AIO_API_TOKEN. Paste it raw — the script adds the "AioAuth " prefix itself.',
     };
   }
+  if (res.status === 403) {
+    return {
+      system: 'AIO Tests',
+      status: 'fail',
+      lines,
+      problem: `The token is valid, but it has no permission on project "${project}" (403).`,
+      fix: 'Grant this AIO account access to that project. The token itself is fine — reissuing it will not help.',
+    };
+  }
   if (res.status === 404) {
     return {
       system: 'AIO Tests',
       status: 'fail',
       lines,
-      problem: `The token authenticated, but project "${project}" was not found (404).`,
-      fix: 'Set AIO_PROJECT_KEY to the Jira project key AIO Tests is enabled on — it accepts the key or the numeric id.',
+      problem: `The token authenticated, but nothing was found at that path (404).`,
+      fix: `Verify AIO_PROJECT_KEY "${project}" and AIO_API_BASE_URL "${base}" — a wrong base URL and a wrong project key both land here. Cloud is /aio-tcms/api/v1; Server/DC is /<context>/rest/aio-tcms-api/1.0.`,
     };
   }
   if (!res.ok) {
@@ -343,6 +390,41 @@ async function checkJira(): Promise<Result> {
       lines,
       problem: insecure,
       fix: 'Point JIRA_BASE_URL at the https:// site URL. Nothing was sent.',
+    };
+  }
+
+  /* A base URL carrying credentials, a query, or a fragment is a
+     misconfiguration that would otherwise be sent to Jira — and embedded
+     credentials would then sit in every log line that echoes the URL. */
+  const parsedBase = new URL(base);
+  if (parsedBase.username || parsedBase.password || parsedBase.search || parsedBase.hash) {
+    return {
+      system: 'Jira',
+      status: 'fail',
+      lines,
+      problem: 'JIRA_BASE_URL carries credentials, a query string, or a fragment.',
+      fix: 'It must be the bare site URL, e.g. https://your-company.atlassian.net. Nothing was sent.',
+    };
+  }
+
+  /* Jira project keys are uppercase-ish short identifiers. Catching a typo here
+     costs nothing; catching it as a 404 later reads like a permissions problem. */
+  if (!/^[A-Za-z][A-Za-z0-9_]{0,19}$/.test(project)) {
+    return {
+      system: 'Jira',
+      status: 'fail',
+      lines,
+      problem: `JIRA_PROJECT_KEY "${project}" is not a valid Jira project key.`,
+      fix: 'A key starts with a letter and is up to 20 letters, digits, or underscores. Nothing was sent.',
+    };
+  }
+  if (issueType.length > 100) {
+    return {
+      system: 'Jira',
+      status: 'fail',
+      lines,
+      problem: 'JIRA_ISSUE_TYPE is longer than the 100 characters Jira accepts.',
+      fix: 'Nothing was sent.',
     };
   }
 
@@ -449,6 +531,17 @@ async function checkJira(): Promise<Result> {
   } else {
     lines.push({ label: 'issue type', value: `${issueType} (not verified — none listed)` });
   }
+
+  /* Say plainly what this check does not cover. A Jira screen can require
+     fields that neither the project payload nor the createmeta endpoint
+     reports — test-ops hit exactly this on YWPD, whose Bug screen demands
+     Components, Affects versions, and a custom iteration field. A green
+     connection therefore means the credential and project are good, not that
+     an issue will be accepted. */
+  lines.push({
+    label: 'note',
+    value: 'connection only — a Bug screen may still require fields this cannot see',
+  });
 
   return { system: 'Jira', status: 'pass', lines };
 }
