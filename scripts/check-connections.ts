@@ -25,6 +25,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import dotenv from 'dotenv';
 import { REPO_ROOT } from '../src/core/paths';
+import { resolveEnvName } from '../src/core/config';
 
 /** How long any single request may take before it is called unreachable. */
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -32,13 +33,21 @@ const REQUEST_TIMEOUT_MS = 15_000;
 /**
  * Env layering, matching src/core/config.ts: `.env.<env>` wins over `.env`, and
  * a real process env var wins over both (dotenv never overwrites).
+ *
+ * The environment name comes from resolveEnvName() rather than
+ * `process.env.E2E_ENV` directly, because E2E_ENV is itself commonly set inside
+ * `.env` — reading it from the process first would resolve to the default and
+ * silently skip `.env.<env>` entirely. That function already encodes the rule:
+ * a shell/CI value wins, otherwise the generic `.env` selects the environment
+ * before `.env.<env>` is known.
  */
-function loadEnv(): void {
-  const activeEnv = process.env.E2E_ENV ?? 'local';
+function loadEnv(): string {
+  const activeEnv = resolveEnvName();
   for (const file of [`.env.${activeEnv}`, '.env']) {
     const full = path.join(REPO_ROOT, file);
     if (fs.existsSync(full)) dotenv.config({ path: full });
   }
+  return activeEnv;
 }
 
 type Status = 'pass' | 'fail' | 'skip';
@@ -563,7 +572,7 @@ function report(results: Result[]): void {
 }
 
 async function main(): Promise<void> {
-  loadEnv();
+  const activeEnv = loadEnv();
 
   const requested = process.argv.slice(2).filter((a) => !a.startsWith('-'));
   const targets = requested.length > 0 ? requested : ['aio', 'jira'];
@@ -574,9 +583,7 @@ async function main(): Promise<void> {
     process.exit(2);
   }
 
-  console.log(
-    `Connection check — read-only, GET requests only (env: ${process.env.E2E_ENV ?? 'local'})`,
-  );
+  console.log(`Connection check — read-only, GET requests only (env: ${activeEnv})`);
 
   const results: Result[] = [];
   if (targets.includes('aio')) results.push(await checkAio());
