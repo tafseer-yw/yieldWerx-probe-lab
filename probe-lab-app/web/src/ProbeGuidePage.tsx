@@ -1313,39 +1313,126 @@ function GettingStarted({ completed, toggle }: ChecklistProps): ReactElement {
   return (
     <Card>
       <CardHead
-        title="Get the lab running"
-        subtitle="Run these commands from the repository root."
+        title="Install and run the lab"
+        subtitle="Five steps from an empty folder to a running app. Everything is local and offline."
       />
       <CardBody>
         <div className="guide-callout-grid">
-          <GuideCallout title="Prerequisites" icon="info">
-            Node.js 22.18 or newer, npm, Git, and a Chromium-capable workstation. Git LFS is also
-            needed when cloning the Knowledgebase source documents.
+          <GuideCallout title="Before you start" icon="info">
+            Node.js 22.18 or newer, npm, and Git. Check with <code>node -v</code> — an older Node
+            fails during install rather than at runtime. Git LFS is needed only if you also clone
+            the Knowledgebase, whose documents use it.
           </GuideCallout>
-          <GuideCallout title="Local addresses" icon="target">
+          <GuideCallout title="Where it runs" icon="target">
             Web app: <code>http://127.0.0.1:3000</code>
             <br />
             API: <code>http://127.0.0.1:5000</code>
             <br />
-            OpenAPI: <code>/docs</code>
+            OpenAPI document: <code>/openapi.json</code>
           </GuideCallout>
         </div>
+
+        <p className="guide-arg-label">Step 1 — Get the repository</p>
         <CommandBlock
-          label="Install everything"
-          command={'npm install\nnpx playwright install chromium'}
+          command={
+            'git clone https://github.com/tafseer-yw/yieldWerx-probe-lab.git\ncd yieldWerx-probe-lab'
+          }
+          compact
         />
-        <CommandBlock label="Seed and start the app" command="npm run app:dev" />
+
+        <p className="guide-arg-label">Step 2 — Install dependencies</p>
+        <CommandBlock command="npm install" compact />
+        <p className="guide-note">
+          One command covers both packages. This repository holds two: the test framework at the
+          root, and the app under <code>probe-lab-app/</code> with its own dependencies. The root
+          install finishes by installing the app&rsquo;s as well.
+        </p>
+
+        <p className="guide-arg-label">Step 3 — Install the browser Playwright drives</p>
+        <CommandBlock command="npx playwright install chromium" compact />
+        <p className="guide-note">
+          Separate from <code>npm install</code> on purpose — this downloads a browser binary, not
+          an npm package. Skip it and the suite fails on its first scenario.
+        </p>
+
+        <p className="guide-arg-label">Step 4 — Start the lab</p>
+        <CommandBlock command="npm run app:dev" compact />
+        <p className="guide-note">
+          Seeds the database, then runs the API and the web app together. Leave it running and use a
+          second terminal for everything else.
+        </p>
+
+        <p className="guide-arg-label">Step 5 — Confirm the install is complete</p>
+        <CommandBlock command={'node scripts/ensure-deps.mjs --check\nnpm test'} compact />
+        <p className="guide-note">
+          The first prints nothing and exits <code>0</code> when every declared package is present,
+          naming whatever is missing otherwise; it installs nothing, so it is safe to run any time.
+          The second runs the app tests and the browser scenarios, starting the app itself if it is
+          not already up.
+        </p>
+
+        <Alert tone="good">
+          <strong>A missing dependency will not stop you.</strong> Every command in both packages
+          checks its dependencies first and installs them if they are absent, so a fresh clone, a
+          skipped install, or a <code>git pull</code> that added a package all repair themselves on
+          the next command you run. The one exception is{' '}
+          <code>npm run &lt;script&gt; --ignore-scripts</code>, which skips that check along with
+          every other hook.
+        </Alert>
+
         <Alert tone="info">
           Sign in with <code>dev / dev</code> or <code>qa / qa</code> for uploads, or{' '}
           <code>admin / admin</code> to manage sample wafers. These are local practice credentials
           only.
         </Alert>
+
+        <p className="guide-arg-label">If something goes wrong</p>
+        <dl className="guide-args">
+          <div className="guide-arg">
+            <dt>
+              <code>tsx: command not found</code>
+            </dt>
+            <dd>
+              The app&rsquo;s dependencies were never installed — usually an install that ran as{' '}
+              <code>--omit=dev</code> or with <code>NODE_ENV=production</code>, which skips
+              development dependencies, and tsx is one. Run the command again; it now installs them
+              for you.
+            </dd>
+          </div>
+          <div className="guide-arg">
+            <dt>
+              <code>EADDRINUSE</code> on 3000 or 5000
+            </dt>
+            <dd>
+              An earlier run still holds the port. Stop it, or find it with{' '}
+              <code>lsof -i :5000</code>.
+            </dd>
+          </div>
+          <div className="guide-arg">
+            <dt>The app starts but has no wafers</dt>
+            <dd>
+              The database seeded empty. Delete{' '}
+              <code>probe-lab-app/data/practice-probe-db.sqlite*</code> and run{' '}
+              <code>npm run app:dev</code> again to recreate and reseed it.
+            </dd>
+          </div>
+          <div className="guide-arg">
+            <dt>Playwright cannot find a browser</dt>
+            <dd>
+              Step 3 was skipped, or ran against a different Node installation. Rerun{' '}
+              <code>npx playwright install chromium</code>.
+            </dd>
+          </div>
+        </dl>
+
         <Checklist
           prefix="start"
           items={[
-            'Install root and app dependencies',
+            'Confirm Node 22.18 or newer with node -v',
+            'Clone the repository and enter it',
+            'Run npm install',
             'Install the Playwright Chromium browser',
-            'Start the API and web app',
+            'Start the app with npm run app:dev',
             'Open the dashboard and sign in',
             'Run npm test from a second terminal',
           ]}

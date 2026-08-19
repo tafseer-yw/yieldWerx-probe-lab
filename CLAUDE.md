@@ -43,15 +43,16 @@ requested PROBE stage. Work on a feature starts by reading its ledger:
 
 ## Commands
 
-| Command                     | Purpose                                                                              |
-| --------------------------- | ------------------------------------------------------------------------------------ |
-| `npm test`                  | bddgen + Playwright (chromium); the webServer auto-starts probe-lab-app              |
-| `npm run test:smoke`        | the `@smoke` tag slice                                                               |
-| `npm run typecheck`         | `tsc --noEmit` (strict)                                                              |
-| `npm run lint`              | `eslint .` (no `any`, no raw CSS/XPath locators in steps, downward import direction) |
-| `npm run app:dev`           | seed + run probe-lab-app (API :5000 + web :3000)                                     |
-| `npm run check:connections` | verify the AIO Tests and Jira credentials reach their configured project (read-only) |
-| `npm run app:build`         | production-build probe-lab-app                                                       |
+| Command                                | Purpose                                                                              |
+| -------------------------------------- | ------------------------------------------------------------------------------------ |
+| `npm test`                             | bddgen + Playwright (chromium); the webServer auto-starts probe-lab-app              |
+| `npm run test:smoke`                   | the `@smoke` tag slice                                                               |
+| `npm run typecheck`                    | `tsc --noEmit` (strict)                                                              |
+| `npm run lint`                         | `eslint .` (no `any`, no raw CSS/XPath locators in steps, downward import direction) |
+| `npm run app:dev`                      | seed + run probe-lab-app (API :5000 + web :3000)                                     |
+| `npm run check:connections`            | verify the AIO Tests and Jira credentials reach their configured project (read-only) |
+| `node scripts/ensure-deps.mjs --check` | report missing/stale dependencies without installing (CI)                            |
+| `npm run app:build`                    | production-build probe-lab-app                                                       |
 
 ## Architecture
 
@@ -111,6 +112,26 @@ trail: `docs/qa/<feature>/` (committed).
   instead.
 - Severity ladder: `blocker | high | medium | low | info`. `blocker` halts
   immediately; `high` halts after the current step.
+
+## Dependencies install themselves
+
+Every front-door npm script in both packages has a `pre<name>` hook running
+`scripts/ensure-deps.mjs`, which installs a missing or stale dependency tree
+and then lets the command proceed. Nobody has to be told to run `npm install`
+first, and `sh: tsx: command not found` should not recur.
+
+The guard imports **`node:` builtins only**, and is `.mjs` run by `node` rather
+than `.ts` run by `tsx`, because tsx is exactly what goes missing. Any import of
+a package here would reintroduce the failure it exists to remove.
+
+It is silent when the tree is healthy (~40ms). The check is whether every
+package the project declares is present on disk — the question that actually
+decides whether the next command runs — so a `git pull` that adds a dependency,
+and an `--omit=dev` install that skipped tsx, both heal on the next command.
+It is deliberately not a lockfile hash: `npm install` rewrites the lockfile on
+some platforms, so a hash would never settle and would dirty git on every run.
+`postinstall` passes `--include=dev` so a nested install cannot inherit
+`--omit=dev` or `NODE_ENV=production` and silently skip devDependencies.
 
 ## Maintenance
 
