@@ -30,6 +30,10 @@ export default defineConfig({
     ['list'],
     ['html', { open: 'never', outputFolder: 'reports/playwright-report' }],
     ['junit', { outputFile: 'reports/junit.xml' }],
+    // Turns each failed scenario into a deduplicated bug candidate under
+    // .probe/artifacts/bug-sync/candidates, which `npm run bug:sync` files to
+    // Jira. It only writes on failure, so a green run produces nothing.
+    ['./src/core/bugCandidateReporter.ts'],
   ],
   /*
    * Visual baselines live in a committed directory, decoupled from the
