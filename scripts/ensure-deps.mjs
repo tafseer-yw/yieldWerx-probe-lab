@@ -105,11 +105,26 @@ function reasonToInstall(dir) {
  * it and quietly reproduces the exact failure being repaired.
  */
 function install(dir, label) {
-  const result = spawnSync(
-    process.platform === 'win32' ? 'npm.cmd' : 'npm',
-    ['install', '--include=dev', '--no-audit', '--no-fund'],
-    { cwd: dir, stdio: 'inherit', env: process.env },
-  );
+  /*
+   * Run through a shell, as one string, on every platform.
+   *
+   * Windows needs the shell: npm there is a .cmd, and since the CVE-2024-27980
+   * fix (Node 18.20.2 / 20.12.2) spawning a .cmd or .bat without `shell: true`
+   * throws EINVAL — which would have made this guard fail on exactly the
+   * machines it was written for.
+   *
+   * One string rather than an args array because passing args alongside
+   * `shell: true` is deprecated (DEP0190) and prints a warning on every run.
+   * That is safe only because every token here is a fixed literal with no
+   * spaces, quotes or interpolation; the one value that varies, the directory,
+   * travels in `cwd` and never touches the command line.
+   */
+  const result = spawnSync('npm install --include=dev --no-audit --no-fund', {
+    cwd: dir,
+    stdio: 'inherit',
+    env: process.env,
+    shell: true,
+  });
   if (result.error) {
     say(`could not run npm for ${label}: ${result.error.message}`);
     return false;
