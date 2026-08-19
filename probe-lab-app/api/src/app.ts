@@ -20,6 +20,7 @@ import { registerWaferRoutes } from './routes/wafers.js';
 import { registerClusterDetectionRoutes } from './routes/cluster-detection.js';
 import { registerReportRoutes } from './routes/reports.js';
 import { registerSampleDataRoutes } from './routes/sample-data.js';
+import { registerAssessmentRoutes } from './routes/assessments.js';
 import { registerSignatureMatchRoutes } from './routes/signature-match.js';
 import { SqliteApplicationStore } from './store.js';
 
@@ -244,6 +245,7 @@ export async function buildApplication(options: BuildApplicationOptions): Promis
   await registerReportRoutes(app, store);
   await registerClusterDetectionRoutes(app, store);
   await registerSignatureMatchRoutes(app, store);
+  await registerAssessmentRoutes(app, store);
   await registerSampleDataRoutes(app, store);
 
   app.addHook('onClose', async () => {

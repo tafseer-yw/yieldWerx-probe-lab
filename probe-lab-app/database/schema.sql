@@ -146,3 +146,20 @@ CREATE INDEX IF NOT EXISTS idx_upload_status ON upload(status, submitted_at DESC
 CREATE INDEX IF NOT EXISTS idx_upload_error_page ON upload_error(upload_id, row_number, upload_error_id);
 CREATE INDEX IF NOT EXISTS idx_wafer_finish ON wafer(finish_time DESC, wafer_sequence DESC);
 CREATE INDEX IF NOT EXISTS idx_die_wafer ON die(wafer_sequence);
+
+-- Self-recorded PROBE assessment results, one current state per person and
+-- assessment. The catalogue itself lives in code (shared/assessments.ts);
+-- this table holds only what a person recorded about their own attempt.
+CREATE TABLE IF NOT EXISTS assessment_result
+(
+    user_id       TEXT NOT NULL,
+    assessment_id TEXT NOT NULL,
+    outcome       TEXT NOT NULL CHECK (outcome IN ('passed', 'failed')),
+    attempts      INTEGER NOT NULL DEFAULT 1 CHECK (attempts > 0),
+    -- The pull request the work was submitted through, so a result points at
+    -- reviewable evidence instead of standing on its own word.
+    evidence_url  TEXT,
+    updated_at    TEXT NOT NULL,
+    PRIMARY KEY (user_id, assessment_id),
+    FOREIGN KEY (user_id) REFERENCES app_user (user_id) ON DELETE CASCADE
+);

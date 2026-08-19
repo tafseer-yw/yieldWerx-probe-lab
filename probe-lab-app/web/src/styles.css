@@ -2891,6 +2891,150 @@ td.mono {
   word-break: break-all;
 }
 
+/* ---------------------------------------------------------- assessments --- */
+
+/* Progress toward the next level. One quiet bar, no animation — the number
+   next to it is the real information. */
+.assessment-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.assessment-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.assessment-honesty {
+  margin: 12px 0 0 !important;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.assessment-standings {
+  margin-top: 16px;
+}
+
+.assessment-standings table {
+  margin-top: 4px;
+}
+
+.assessment-list {
+  display: grid;
+  gap: 14px;
+}
+
+.assessment {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.assessment-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.assessment-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.assessment-order {
+  color: var(--ink-3);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.assessment-tags {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.assessment-mission {
+  margin: 8px 0 !important;
+  color: var(--ink-2);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.assessment-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.assessment-skills code {
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  font-size: 12px;
+}
+
+.assessment-pass-when {
+  margin: 4px 0 12px;
+  padding-left: 20px;
+}
+
+.assessment-pass-when li {
+  margin-bottom: 3px;
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.assessment-foot {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* The PR link input: the submission method, so it sits beside the buttons
+   rather than hidden behind a dialog. */
+.assessment-evidence {
+  flex: 1 1 260px;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-2);
+  color: var(--ink-1);
+  font-size: 12.5px;
+}
+
+.assessment-evidence:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.assessment-actions {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.assessment-evidence-link {
+  margin: 8px 0 0 !important;
+  color: var(--ink-3);
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.assessment-evidence-link a {
+  color: var(--accent);
+}
+
 /* --------------------------------------------------------------- upload --- */
 
 .dropzone {

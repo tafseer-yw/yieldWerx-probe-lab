@@ -79,6 +79,31 @@ export interface ApplicationStore {
   deleteUpload(uploadId: string): Promise<boolean>;
   listSampleUploads(): Promise<SampleUploadRow[]>;
   removeSampleUploads(lots: string[]): Promise<number>;
+  listAssessmentResults(userId: string): Promise<AssessmentResultRow[]>;
+  listAllAssessmentResults(): Promise<AssessmentStandingRow[]>;
+  recordAssessmentResult(
+    userId: string,
+    assessmentId: string,
+    outcome: 'passed' | 'failed',
+    evidenceUrl: string | null,
+  ): Promise<void>;
+  clearAssessmentResult(userId: string, assessmentId: string): Promise<boolean>;
+}
+
+/** One person's current state on one assessment. */
+export interface AssessmentResultRow {
+  assessmentId: string;
+  outcome: 'passed' | 'failed';
+  attempts: number;
+  /** The pull request the work was submitted through, when one was recorded. */
+  evidenceUrl: string | null;
+  updatedAt: string;
+}
+
+/** A result joined to its owner, for the team standings. */
+export interface AssessmentStandingRow extends AssessmentResultRow {
+  username: string;
+  role: string;
 }
 
 interface UploadRow {
@@ -198,6 +223,30 @@ export class SqliteApplicationStore implements ApplicationStore {
       this.db.exec('ALTER TABLE upload ADD COLUMN is_sample INTEGER NOT NULL DEFAULT 0');
     }
     this.assertWaferRangesAreCurrent();
+    /* A database created before assessments existed, opened by `npm run dev`
+       (which skips setup), would otherwise 500 on the first assessments read. */
+    this.db.exec(`CREATE TABLE IF NOT EXISTS assessment_result
+      (
+          user_id       TEXT NOT NULL,
+          assessment_id TEXT NOT NULL,
+          outcome       TEXT NOT NULL CHECK (outcome IN ('passed', 'failed')),
+          attempts      INTEGER NOT NULL DEFAULT 1 CHECK (attempts > 0),
+          evidence_url  TEXT,
+          updated_at    TEXT NOT NULL,
+          PRIMARY KEY (user_id, assessment_id),
+          FOREIGN KEY (user_id) REFERENCES app_user (user_id) ON DELETE CASCADE
+      )`);
+    /* Same self-heal as is_sample above: IF NOT EXISTS skips a table created by
+       an earlier version, so a column added later must be checked for by name. */
+    const resultColumns = this.db.prepare('PRAGMA table_info(assessment_result)').all() as Array<{
+      name: string;
+    }>;
+    if (
+      resultColumns.length > 0 &&
+      !resultColumns.some((column) => column.name === 'evidence_url')
+    ) {
+      this.db.exec('ALTER TABLE assessment_result ADD COLUMN evidence_url TEXT');
+    }
   }
 
   /**
@@ -716,6 +765,94 @@ export class SqliteApplicationStore implements ApplicationStore {
       if (await this.deleteUpload(row.uploadId)) removed += 1;
     }
     return removed;
+  }
+
+  public async listAssessmentResults(userId: string): Promise<AssessmentResultRow[]> {
+    return this.db
+      .prepare(
+        `SELECT assessment_id, outcome, attempts, evidence_url, updated_at
+           FROM assessment_result WHERE user_id = ?`,
+      )
+      .all(userId)
+      .map((row) => {
+        const typed = row as {
+          assessment_id: string;
+          outcome: 'passed' | 'failed';
+          attempts: number;
+          evidence_url: string | null;
+          updated_at: string;
+        };
+        return {
+          assessmentId: typed.assessment_id,
+          outcome: typed.outcome,
+          attempts: typed.attempts,
+          evidenceUrl: typed.evidence_url,
+          updatedAt: typed.updated_at,
+        };
+      });
+  }
+
+  public async listAllAssessmentResults(): Promise<AssessmentStandingRow[]> {
+    return this.db
+      .prepare(
+        `SELECT u.username, u.role, r.assessment_id, r.outcome, r.attempts,
+                r.evidence_url, r.updated_at
+           FROM assessment_result r
+           JOIN app_user u ON u.user_id = r.user_id
+          ORDER BY u.username`,
+      )
+      .all()
+      .map((row) => {
+        const typed = row as {
+          username: string;
+          role: string;
+          assessment_id: string;
+          outcome: 'passed' | 'failed';
+          attempts: number;
+          evidence_url: string | null;
+          updated_at: string;
+        };
+        return {
+          username: typed.username,
+          role: typed.role,
+          assessmentId: typed.assessment_id,
+          outcome: typed.outcome,
+          attempts: typed.attempts,
+          evidenceUrl: typed.evidence_url,
+          updatedAt: typed.updated_at,
+        };
+      });
+  }
+
+  public async recordAssessmentResult(
+    userId: string,
+    assessmentId: string,
+    outcome: 'passed' | 'failed',
+    evidenceUrl: string | null,
+  ): Promise<void> {
+    /* Re-recording replaces the state and counts the attempt — the row is the
+       person's current word on the assessment, not a history. A re-record that
+       omits the link keeps the previous one: forgetting to re-paste a PR URL
+       should not erase the evidence. */
+    this.db
+      .prepare(
+        `INSERT INTO assessment_result
+           (user_id, assessment_id, outcome, attempts, evidence_url, updated_at)
+         VALUES (?, ?, ?, 1, ?, ?)
+         ON CONFLICT (user_id, assessment_id)
+         DO UPDATE SET outcome = excluded.outcome,
+                       attempts = attempts + 1,
+                       evidence_url = COALESCE(excluded.evidence_url, evidence_url),
+                       updated_at = excluded.updated_at`,
+      )
+      .run(userId, assessmentId, outcome, evidenceUrl, new Date().toISOString());
+  }
+
+  public async clearAssessmentResult(userId: string, assessmentId: string): Promise<boolean> {
+    const result = this.db
+      .prepare('DELETE FROM assessment_result WHERE user_id = ? AND assessment_id = ?')
+      .run(userId, assessmentId);
+    return result.changes > 0;
   }
 
   public isReady(): boolean {

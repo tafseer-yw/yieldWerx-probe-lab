@@ -248,3 +248,26 @@ probe-lab-app/
   exact references, too-few-failure behavior, and below-threshold results are stable QA surfaces.
 - Light/dark theming, an empty state per screen, and a validation-report dialog
   give visual-state and accessibility cases.
+
+## Assessments
+
+The header's **Assessments** page carries a self-paced skill ladder: 15
+assessments per track (Dev and QA), ordered from first skills to a capstone,
+each classified by effort — Starter (10 pts), Core (20), Advanced (35),
+Expert (60). The dev-track build targets are real gaps in this app (lot
+summary report, audit trail, duplicate-die upload guard, wafer compare), so
+the work products are genuinely useful. The QA track covers the full ladder
+through API test automation, performance test design, and security cases.
+
+Results are **self-recorded per signed-in account**, on the honor system —
+the same philosophy as a PROBE gate: the record is the person's word. The
+submission method is a **pull request**: do the work on a branch, open the
+PR, and record its link with the result so every pass points at reviewable
+evidence. Passing adds the assessment's points; a standing fail subtracts
+half of them until cleared or passed; the total never goes below zero. Six
+fab-themed levels run from Cleanroom Visitor to Fab Master, and the page
+shows team standings for everyone who has recorded anything.
+
+Progress belongs to the account that recorded it. The lab seeds four shared
+accounts (`viewer`, `dev`, `qa`, `admin`); for personal tracking, give each
+team member their own row in `scripts/setup.ts`'s `seedUsers`.
