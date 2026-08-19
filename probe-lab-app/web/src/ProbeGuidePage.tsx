@@ -16,152 +16,1231 @@ const guideSections: Array<{ id: GuideSection; label: string; hint: string }> = 
 
 const validSections = new Set<GuideSection>(guideSections.map((section) => section.id));
 
+/** One accepted argument, and what supplying it actually changes. */
+interface SkillArg {
+  /** Written exactly as the skill's argument-hint declares it. */
+  token: string;
+  /** Angle brackets mean required; square brackets mean optional. */
+  required: boolean;
+  /** What the skill does differently because you passed this. */
+  detail: string;
+}
+
 interface TrackStep {
+  /** The skill's real argument contract, as its SKILL.md declares it. */
   command: string;
   title: string;
   purpose: string;
+  /** Every argument, explained one at a time. */
+  args: SkillArg[];
+  /** A runnable invocation against this lab's own features. */
+  example: string;
   agents?: string;
+  /** Skills both tracks use. They appear in both lists on purpose. */
+  shared?: boolean;
 }
 
-const devSteps: TrackStep[] = [
+/** A stack profile: what `--stack` selects, and what changes when it does. */
+interface StackProfile {
+  id: string;
+  name: string;
+  status: 'current' | 'provisional' | 'qa-only';
+  what: string;
+  layers: string;
+  useWhen: string;
+}
+
+/**
+ * The five profiles the plugin ships. A dev-track skill reads its layer names,
+ * conventions, commands and traps from whichever one `--stack` selects — which
+ * is why the same skill produces a Liquibase-shaped migration on one stack and
+ * an EF Core one on another, without a second skill existing.
+ */
+const stackProfiles: StackProfile[] = [
   {
-    command: '/yw:scaffold-app <app-slug> --stack node-ts-spa',
-    title: 'Start a new application',
-    purpose:
-      'Create the contracts, datastore, roles, documented API, and testability surface before features.',
+    id: 'node-ts-spa',
+    name: 'Node service + TypeScript SPA',
+    status: 'current',
+    what: 'This lab, and any application built as a Node/TypeScript HTTP service with a documented API, a relational datastore, and a single-page frontend.',
+    layers:
+      'service: routes → validation → authorization → domain → persistence, with the API document generated from the same definitions the routes use. web: screens → components → data access, every assertable element carrying its selector-policy identifier.',
+    useWhen: 'Practising here, or building the greenfield lightweight stack.',
   },
   {
-    command: '/yw:build-feature <feature-slug> --requirement <path>',
-    title: 'Build a feature',
-    purpose:
-      'Clarify intent, implement bounded work, and verify the result. Use --no-requirement only with a recorded reason.',
-    agents: 'requirement-clarifier · testability-scout · build-verifier',
+    id: 'dotnet-legacy',
+    name: 'Legacy platform — web and desktop',
+    status: 'current',
+    what: 'The shipped yieldWerx product: ASP.NET MVC 5 on .NET Framework 4.7.2, Entity Framework 6 (Code-First, with an older EDMX model still in CLM), Dapper, SignalR, SQL Server, the WinForms desktop application, and the Windows-service analytics engines.',
+    layers:
+      'Client (browser UI · WinForms desktop · Power BI) → Application (Controller → BL Service → DL Service → Repository, one controller per module) → Engines (UploadService and BrokerService fanning JobCards to PAT, SWM, GDBN, SPC and the rest, each with its own queue) → Data (one SQL Server database, 294 tables and 934+ stored procedures).',
+    useWhen:
+      'Any change to the product that exists today — including the desktop reports, where a control needs a developer-set Name before it can be automated at all.',
   },
   {
-    command: '/yw:revise-feature <feature-slug> -- <required change>',
-    title: 'Change existing behavior',
-    purpose:
-      'Make the smallest compatible revision and produce a downstream QA-artifact invalidation list.',
-    agents: 'requirement-clarifier · testability-scout · build-verifier',
+    id: 'dotnet-modern',
+    name: 'Modern service (SaaS direction)',
+    status: 'provisional',
+    what: 'The modernization path the knowledgebase records: REST on a single gateway retiring the legacy WCF services, zero-trust authorization on every call including internal ones, and rules-as-configuration that are versioned and audited.',
+    layers:
+      'Not yet fixed. No repository stands behind this profile, so it carries approved direction rather than verified facts — a design built against it states that in its own header, and nothing may cite it as evidence of how existing code works.',
+    useWhen:
+      'A new service on the modernization path. The first real repository on this stack replaces the profile with verified facts.',
   },
   {
-    command: '/yw:fix-defect <feature-slug> "<symptom>"',
-    title: 'Fix a defect',
-    purpose:
-      'Reproduce the failure, add a failing regression first, implement the smallest correct fix, and verify it.',
-    agents: 'build-verifier',
+    id: 'testcomplete-winforms',
+    name: 'Desktop automation',
+    status: 'qa-only',
+    what: 'SmartBear TestComplete driving the WinForms desktop application: Gherkin in the Scenarios project item, Python step definitions, objects reached through Name Mapping aliases.',
+    layers:
+      'Project suite (.pjs) → projects (.mds) → Scenarios, Script units, NameMapping, TestedApps, Stores. Runs select by tag; only exit code 2 is a test failure, and an interactive user session is required — a headless agent cannot run it.',
+    useWhen:
+      'The QA desktop skills. Usually maintained by a different team, whose config points paths.features and paths.ledgers at the QA repository.',
   },
   {
-    command: '/yw:seed-testability <feature-slug> --surface all',
-    title: 'Repair legacy testability gaps',
-    purpose:
-      'Add stable selectors, served API documentation, and readable business values to older code.',
-    agents: 'testability-scout',
-  },
-  {
-    command: '/yw:review-code <feature-slug> --staged --depth thorough',
-    title: 'Run independent review',
-    purpose:
-      'Review correctness, security, data integrity, observability, and testability without editing the change.',
-    agents: 'code-reviewer · build-verifier',
-  },
-  {
-    command: '/yw:ship-change <feature-slug> describe',
-    title: 'Prepare the handoff',
-    purpose:
-      'Create reviewable ship notes or local commits. Pushes and pull requests still require explicit authorization.',
-    agents: 'code-reviewer',
+    id: 'playwright-bdd',
+    name: 'Web automation framework',
+    status: 'qa-only',
+    what: "The QA track's own automation stack — Playwright with playwright-bdd, Allure reporting, and the locator, chart and visual-regression conventions the framework already carries.",
+    layers:
+      'features → generated specs → step definitions → page and component objects → fixtures, with independent truth layers (oracle, API, database) behind any calculated assertion.',
+    useWhen: 'Web scripting, stability runs, and CI promotion.',
   },
 ];
 
+/** Nearly every skill takes this, and it means the same thing every time. */
+const SLUG: SkillArg = {
+  token: '<feature-slug>',
+  required: true,
+  detail:
+    'The feature this run belongs to. Names its artifact folder and its ledger, so every stage of the same feature writes to one place. Reuse it exactly.',
+};
+
+const sharedStart: TrackStep[] = [
+  {
+    command:
+      '/yw:forge-prd <feature-slug> [<the idea or problem, or a path to notes>] [--review | --sign-off "<name>"]',
+    title: 'Write the requirement',
+    purpose:
+      'Turn an idea into a PRD an executive, a developer, and a QA all read the same way. Lives in docs/PRDs with a draft to in-review to signed-off filename lifecycle; sign-off is a recorded human decision, never implied.',
+    args: [
+      {
+        token: '<feature-slug>',
+        required: true,
+        detail:
+          'Names the PRD folder and every later artifact for this feature. Reuse it exactly at each stage.',
+      },
+      {
+        token: '[<the idea or problem, or a path to notes>]',
+        required: false,
+        detail:
+          'The raw request in your words, or a file to read it from. Omit it and the skill asks rather than inventing a problem statement.',
+      },
+      {
+        token: '[--review | --sign-off "<name>"]',
+        required: false,
+        detail:
+          'The lifecycle moves — use one or the other, never both. --review renames the draft to prd-in-review.md and names who should read it, changing no content. --sign-off "<name>" renames it to prd-signed-off.md and records that named human and a timestamp; it is only valid on their direct statement, because a bare "looks good" is not a sign-off.',
+      },
+    ],
+    example: '/yw:forge-prd bin-pareto-export "engineers retype pareto numbers by hand"',
+    agents: 'requirement-clarifier',
+    shared: true,
+  },
+  {
+    command:
+      '/yw:probe-spec <feature-slug> [<spec-path-or-text>] [--migrate-format | --reconcile] [--compare-implementation <env-or-url>] [--role <role>] [--build <id>]',
+    title: 'Make the requirement testable',
+    purpose:
+      'The entry point of BOTH tracks. One spec-analysis.md per feature, jointly owned — whoever runs it second reads it rather than producing a second opinion.',
+    args: [
+      SLUG,
+      {
+        token: '[<spec-path-or-text>]',
+        required: false,
+        detail:
+          'The signed-off PRD, another requirement document, or pasted text. This is the sole requirement authority; the knowledgebase only explains vocabulary.',
+      },
+      {
+        token: '[--migrate-format | --reconcile]',
+        required: false,
+        detail:
+          'Two ways to rerun on an analysis that already exists — use one or the other. --migrate-format updates an older analysis to the current shape without changing a single meaning. --reconcile compares it against a revised requirement, keeps criterion ids stable, and reports what the change invalidates in BOTH tracks; it is the only correct way to handle a changed requirement.',
+      },
+      {
+        token: '[--compare-implementation <env-or-url>]',
+        required: false,
+        detail:
+          'Chains straight into Implementation Probe against a running build once the analysis is written.',
+      },
+      {
+        token: '[--role <role>]',
+        required: false,
+        detail:
+          'Which role to sign in as for that comparison — behaviour often differs by permission.',
+      },
+      {
+        token: '[--build <id>]',
+        required: false,
+        detail:
+          'Records exactly which build was observed, so a later divergence can be attributed.',
+      },
+    ],
+    example: '/yw:probe-spec bin-pareto-export docs/PRDs/bin-pareto-export/prd-signed-off.md',
+    agents: 'source-digester',
+    shared: true,
+  },
+];
+
+const crossSteps: TrackStep[] = [
+  {
+    command: '/yw:bug-report <feature-slug> <one-line-symptom>',
+    title: 'File a defect candidate',
+    purpose:
+      'Turn a symptom into a candidate with evidence. Filing to an external tracker stays a separate, authorized step.',
+    args: [
+      SLUG,
+      {
+        token: '<one-line-symptom>',
+        required: true,
+        detail:
+          'What went wrong, in one sentence, as observed. The skill gathers the evidence around it rather than asking you to assemble a report.',
+      },
+    ],
+    example: '/yw:bug-report bin-pareto "cumulative line exceeds 100% on retested wafers"',
+    shared: true,
+  },
+  {
+    command: '/yw:flake-triage <feature-slug-or-scenario> [evidence-path]',
+    title: 'Diagnose an intermittent failure',
+    purpose:
+      'Reproduce the instability deliberately and classify the mechanism. An application bug routes to /yw:fix-defect; a test bug is fixed on the branch.',
+    args: [
+      {
+        token: '<feature-slug-or-scenario>',
+        required: true,
+        detail:
+          'Either the whole feature or one scenario id, when you already know which test is unstable.',
+      },
+      {
+        token: '[evidence-path]',
+        required: false,
+        detail:
+          'A prior run log or report to start from, so the triage does not have to re-provoke a failure you already captured.',
+      },
+    ],
+    example: '/yw:flake-triage TC-cluster-detection-014',
+    agents: 'flake-hunter',
+    shared: true,
+  },
+  {
+    command: '/yw:change-impact [base-ref]',
+    title: 'Ask what a change breaks',
+    purpose:
+      'Trace which cases, scripts, locators, and fixtures a code change invalidates — before it lands rather than after.',
+    args: [
+      {
+        token: '[base-ref]',
+        required: false,
+        detail:
+          'The branch or commit to compare against. Defaults to the working tree against its base, so a bare call answers "what have I broken right now?".',
+      },
+    ],
+    example: '/yw:change-impact main',
+    shared: true,
+  },
+  {
+    command: '/yw:update-yieldwerx-knowledge <approved-change-request>',
+    title: 'Record approved knowledge',
+    purpose:
+      'Write a confirmed product fact, process amendment, or requirement decision into the knowledgebase so every later session and skill reads it.',
+    args: [
+      {
+        token: '<approved-change-request>',
+        required: true,
+        detail:
+          'The change, in the words it was approved in. Approved facts only — this is not a place to record a guess, and the skill will not promote one.',
+      },
+    ],
+    example:
+      '/yw:update-yieldwerx-knowledge "Bin Pareto replaces Bin Histogram; the cumulative line is required"',
+    shared: true,
+  },
+  {
+    command: "/yw:handoff '[<slug>] | close <slug> | list'",
+    title: 'Stop without losing the thread',
+    purpose:
+      'Write the picture the next session needs: what changed, what is verified with the real command output, what is red, and the one next step. Facts come from git, never memory.',
+    args: [
+      {
+        token: '[<slug>]',
+        required: false,
+        detail:
+          'Names the line of work, not the date. Reuse the same slug to update that handoff rather than accumulating copies.',
+      },
+      {
+        token: 'close <slug>',
+        required: false,
+        detail:
+          'Marks the work landed. A stale open handoff points the next session at a world that has moved on.',
+      },
+      {
+        token: 'list',
+        required: false,
+        detail: 'Shows every open handoff with its branch, age, and next step.',
+      },
+    ],
+    example: '/yw:handoff bin-pareto-export',
+    shared: true,
+  },
+];
+
+const devSteps: TrackStep[] = [
+  ...sharedStart,
+  {
+    command: '/yw:forge-tech-design <feature-slug> [--stack <profile-name>] [--ac AC-NN]',
+    title: 'Design against the real layers',
+    purpose:
+      'The spec analysis becomes a stack-fitted design: layer map, data model, API contract, tenancy and authorization, testability obligations, a threat sketch, and decision records. Refuses while a blocking question is open.',
+    args: [
+      SLUG,
+      {
+        token: '[--stack <profile-name>]',
+        required: false,
+        detail:
+          'Which stack to design against — this is what decides whether you get a Controller/BL/DL/Repository map or a Node routes-and-domain one. Defaults to the first entry in your config; never guessed.',
+      },
+      {
+        token: '[--ac AC-NN]',
+        required: false,
+        detail:
+          'Design only the named criterion instead of the whole feature. Useful when one criterion is unblocked and the rest are still open questions.',
+      },
+    ],
+    example: '/yw:forge-tech-design bin-pareto-export --stack node-ts-spa',
+    agents: 'tech-designer',
+  },
+  {
+    command:
+      '/yw:scaffold-app <app-slug> [--stack <profile-name>] [--surfaces api,ui,db,auth,queue] [--dry-run]',
+    title: 'Start a new application',
+    purpose:
+      'Create the contracts, datastore, roles, documented API, and testability surface before any feature exists.',
+    args: [
+      {
+        token: '<app-slug>',
+        required: true,
+        detail: 'Names the application being stood up, and the directory it is created in.',
+      },
+      {
+        token: '[--stack <profile-name>]',
+        required: false,
+        detail: 'Which stack to scaffold. Decides the whole shape of what is generated.',
+      },
+      {
+        token: '[--surfaces api,ui,db,auth,queue]',
+        required: false,
+        detail:
+          'Which surfaces to create. Ask only for what the application needs — an unused queue is scaffolding nobody maintains.',
+      },
+      {
+        token: '[--dry-run]',
+        required: false,
+        detail:
+          'Prints what would be created without writing anything. Worth doing first on a stack you have not scaffolded before.',
+      },
+    ],
+    example: '/yw:scaffold-app wafer-portal --stack node-ts-spa --surfaces api,ui,db',
+  },
+  {
+    command:
+      '/yw:build-feature <feature-slug> [--stack <profile-name>] [--layer backend|frontend|both] [--ac AC-NN] [--category CAT-NN] [--requirement <path>] [--no-requirement "<reason>"]',
+    title: 'Build the feature',
+    purpose:
+      'Clarify intent, implement whole journeys, and loop on exact failures. A backend-led run emits an FE handoff report so frontend work starts from a contract, not re-discovery.',
+    args: [
+      SLUG,
+      {
+        token: '[--stack <profile-name>]',
+        required: false,
+        detail:
+          'Which stack you are building in — decides the layers, conventions, commands, and known traps the build follows.',
+      },
+      {
+        token: '[--layer backend|frontend|both]',
+        required: false,
+        detail:
+          'Which side to implement. A backend-only run still designs the whole journey but implements one side, and emits the endpoint and payload handoff the frontend needs. Defaults to both.',
+      },
+      {
+        token: '[--ac AC-NN]',
+        required: false,
+        detail: 'Build only what one acceptance criterion requires.',
+      },
+      {
+        token: '[--category CAT-NN]',
+        required: false,
+        detail: 'Build one testable category rather than the whole feature.',
+      },
+      {
+        token: '[--requirement <path>]',
+        required: false,
+        detail: 'Point at the requirement document when there is no spec analysis to read.',
+      },
+      {
+        token: '[--no-requirement "<reason>"]',
+        required: false,
+        detail:
+          'Build with no requirement at all — allowed, but the reason is recorded in the build report where a reviewer will see it.',
+      },
+    ],
+    example: '/yw:build-feature bin-pareto-export --stack node-ts-spa --layer backend',
+    agents: 'requirement-clarifier · testability-scout · build-verifier',
+  },
+  {
+    command:
+      '/yw:forge-migration <feature-slug or change description> [--stack <profile-name>] [--data-only]',
+    title: 'Change the database safely',
+    purpose:
+      'Migrations under the rules that make them boring: never edit an applied migration, additive first, two-step NOT NULL, idempotent seeds, and an honest rollback story.',
+    args: [
+      {
+        token: '<feature-slug or change description>',
+        required: true,
+        detail:
+          'Either the feature whose design calls for the change, or the change stated directly for a standalone correction.',
+      },
+      {
+        token: '[--stack <profile-name>]',
+        required: false,
+        detail:
+          'Decides the migration format — a SQL Server changeset on the legacy platform, an EF Core migration on the modern one, plain SQL on the lab stack.',
+      },
+      {
+        token: '[--data-only]',
+        required: false,
+        detail:
+          'A data correction with no schema change. Keeps the safety rules that apply to rows and skips the ones about columns.',
+      },
+    ],
+    example: '/yw:forge-migration "add export_audit table" --stack node-ts-spa',
+    agents: 'build-verifier',
+  },
+  {
+    command: '/yw:forge-unit-tests <feature-slug> [--stack <profile-name>] [--ac AC-NN]',
+    title: 'Cover what QA routed to you',
+    purpose:
+      'The criteria the spec sent to dev-handoff.md, tested at unit level with expected values derived from the rule — never read back from the code under test.',
+    args: [
+      SLUG,
+      {
+        token: '[--stack <profile-name>]',
+        required: false,
+        detail:
+          'Decides the real test framework — xUnit and Moq on .NET, node --test here. The suite that already exists always wins over the one the stack usually has.',
+      },
+      {
+        token: '[--ac AC-NN]',
+        required: false,
+        detail: 'Cover one routed criterion instead of the whole hand-off list.',
+      },
+    ],
+    example: '/yw:forge-unit-tests bin-pareto-export --ac AC-02',
+    agents: 'build-verifier',
+  },
+  {
+    command:
+      '/yw:revise-feature <feature-slug> -- <what must change> [--breaking-ok "<authorization>"] [--ac AC-NN]',
+    title: 'Change existing behavior',
+    purpose:
+      'Inventory current behavior first, stay compatible by default, and emit the list of QA artifacts the change invalidates.',
+    args: [
+      SLUG,
+      {
+        token: '-- <what must change>',
+        required: true,
+        detail:
+          'The change in your words, after a bare double dash so it is never confused with a flag.',
+      },
+      {
+        token: '[--breaking-ok "<authorization>"]',
+        required: false,
+        detail:
+          'Permits a breaking change, recording who authorized it. Without this the skill preserves compatibility even when that costs more work.',
+      },
+      {
+        token: '[--ac AC-NN]',
+        required: false,
+        detail:
+          'Scope the revision to what one acceptance criterion requires, leaving the rest of the feature alone.',
+      },
+    ],
+    example: '/yw:revise-feature bin-pareto -- "sort by bin number by default"',
+    agents: 'requirement-clarifier · testability-scout · build-verifier',
+  },
+  {
+    command:
+      '/yw:fix-defect <feature-slug> "<defect-slug-or-symptom>" [--candidate <path>] [--tc TC-id] [--no-test "<reason>"]',
+    title: 'Fix a defect',
+    purpose:
+      'Write the failing regression test FIRST and record that it failed, then the smallest correct fix, then verify. A test written after the fix cannot fail and proves nothing.',
+    args: [
+      SLUG,
+      {
+        token: '"<defect-slug-or-symptom>"',
+        required: true,
+        detail: 'The bug candidate id, or the symptom as observed if none was filed.',
+      },
+      {
+        token: '[--candidate <path>]',
+        required: false,
+        detail:
+          'A bug-report candidate file, so the fix starts from captured evidence instead of a re-description.',
+      },
+      {
+        token: '[--tc TC-id]',
+        required: false,
+        detail:
+          'The existing test case this defect belongs to, keeping the regression attached to the right case.',
+      },
+      {
+        token: '[--no-test "<reason>"]',
+        required: false,
+        detail:
+          'Skip the failing-test-first rule. The reason lands in the fix report where a reviewer sees it — this is the exception, not a shortcut.',
+      },
+    ],
+    example: '/yw:fix-defect bin-pareto "cumulative percentage exceeds 100"',
+    agents: 'build-verifier',
+  },
+  {
+    command: '/yw:sync-styleguide <feature-slug or --all> [--stack <profile-name>] [--fix]',
+    title: 'Hold the design system',
+    purpose:
+      "Reconcile the implemented interface against this repository's own STYLEGUIDE.md and tokens. Reports drift; --fix applies only the mechanical corrections.",
+    args: [
+      {
+        token: '<feature-slug or --all>',
+        required: true,
+        detail:
+          "One feature's changed interface, or --all to measure the drift across every screen.",
+      },
+      {
+        token: '[--stack <profile-name>]',
+        required: false,
+        detail:
+          "Which stack's interface conventions apply — it decides which styleguide and token files are read as the source of truth.",
+      },
+      {
+        token: '[--fix]',
+        required: false,
+        detail:
+          'Applies only mechanical corrections — a raw colour to the token that owns it, an off-scale value to the nearest step. Anything needing judgement stays a reported finding.',
+      },
+    ],
+    example: '/yw:sync-styleguide bin-pareto-export --fix',
+    agents: 'build-verifier',
+  },
+  {
+    command:
+      '/yw:seed-testability <feature-slug> [--from-recon <path>] [--surface ui|api|results|all] [--rank high|medium|all]',
+    title: 'Repair legacy testability gaps',
+    purpose:
+      'Add stable selectors, served API documentation, and readable business values to code written before the obligation existed — including WinForms controls with no Name set.',
+    args: [
+      SLUG,
+      {
+        token: '[--from-recon <path>]',
+        required: false,
+        detail:
+          'A recon gap list to work through, so you fix what was actually found rather than what you expect to be missing.',
+      },
+      {
+        token: '[--surface ui|api|results|all]',
+        required: false,
+        detail:
+          'Which surface to repair: interface identifiers, the served API document, or readable calculated results.',
+      },
+      {
+        token: '[--rank high|medium|all]',
+        required: false,
+        detail:
+          'How deep to go. Start at high — those are the gaps actually blocking a test today.',
+      },
+    ],
+    example: '/yw:seed-testability bin-pareto --surface all --rank high',
+    agents: 'testability-scout',
+  },
+  {
+    command:
+      '/yw:review-code <feature-slug> [branch|--staged|--files <path,...>] [--focus correctness|security|data|observability|all] [--depth quick|thorough]',
+    title: 'Review before the pull request',
+    purpose:
+      'Independent adversarial review of the working tree. Produces GO / NO-GO evidence a human weighs; it never edits what it reviews.',
+    args: [
+      SLUG,
+      {
+        token: '[branch|--staged|--files <path,...>]',
+        required: false,
+        detail:
+          'What to review: a branch against its base, only what you have staged, or an explicit file list.',
+      },
+      {
+        token: '[--focus correctness|security|data|observability|all]',
+        required: false,
+        detail:
+          'Narrow the lens to correctness, security, data integrity, or observability. Defaults to all, which is usually right before a pull request.',
+      },
+      {
+        token: '[--depth quick|thorough]',
+        required: false,
+        detail:
+          'Quick is a fast pass for a small change; thorough reads the surrounding code and the requirement too.',
+      },
+    ],
+    example: '/yw:review-code bin-pareto-export --staged --depth thorough',
+    agents: 'code-reviewer · build-verifier',
+  },
+  {
+    command:
+      '/yw:ship-change <feature-slug> [commit|describe|both] [--push] [--open-pr] [--base <ref>]',
+    title: 'Commit and describe',
+    purpose:
+      'Hygiene checks, conventional commits, and a pull-request body carrying the evidence. Pushing and opening the request need explicit authorization.',
+    args: [
+      SLUG,
+      {
+        token: '[commit|describe|both]',
+        required: false,
+        detail:
+          'Make the local commits, write the pull-request body, or both. Describe alone is useful when you want to read the body before anything is committed.',
+      },
+      {
+        token: '[--push]',
+        required: false,
+        detail:
+          'Pushes the branch. Withheld by default — pushing is an outward action and needs you to ask for it.',
+      },
+      {
+        token: '[--open-pr]',
+        required: false,
+        detail: 'Opens the pull request. Also withheld by default, and never merges.',
+      },
+      {
+        token: '[--base <ref>]',
+        required: false,
+        detail: 'The branch to target, when it is not the repository default.',
+      },
+    ],
+    example: '/yw:ship-change bin-pareto-export both',
+    agents: 'code-reviewer',
+  },
+  {
+    command: '/yw:review-pr <pr-number-or-url> [--repo <path>] [--post]',
+    title: 'Review the opened request',
+    purpose:
+      'Read the pull request as its reviewer: claims checked against the diff, coverage by criterion, and what it invalidates downstream. It never merges.',
+    args: [
+      {
+        token: '<pr-number-or-url>',
+        required: true,
+        detail:
+          'The pull request to review. The host is read from the remote — gh for GitHub, az repos for Azure DevOps.',
+      },
+      {
+        token: '[--repo <path>]',
+        required: false,
+        detail: 'Which checkout to review from, when you are not sitting in it.',
+      },
+      {
+        token: '[--post]',
+        required: false,
+        detail:
+          'Posts the findings to the host as review comments. Off by default: the review artifact stands on its own, and posting is an outward action.',
+      },
+    ],
+    example: '/yw:review-pr 42',
+    agents: 'code-reviewer',
+  },
+  ...crossSteps,
+];
+
 const qaSteps: TrackStep[] = [
+  ...sharedStart,
   {
     command: '/yw:ask-yieldwerx <question>',
     title: 'Get product context',
     purpose:
-      'Ask the Knowledgebase about YieldWerx terms, modules, calculations, or workflows. Context cannot invent requirements.',
-    agents: 'Knowledgebase routing skill',
+      'Ask the knowledgebase about terms, modules, calculations, or workflows. Context explains vocabulary; it can never create or complete a requirement.',
+    args: [
+      {
+        token: '<question>',
+        required: true,
+        detail:
+          'Ask in plain words. Answers are sourced and cited — an uncited claim is treated as unknown rather than guessed.',
+      },
+    ],
+    example: '/yw:ask-yieldwerx "what is the difference between hard bin and soft bin?"',
+    agents: 'knowledgebase routing skill',
   },
   {
-    command: '/yw:probe-spec <feature-slug> <approved-spec>',
-    title: 'Make the requirement testable',
-    purpose:
-      'Extract stable acceptance criteria, categories, ambiguities, domain needs, and the feature ledger.',
-    agents: 'source-digester',
-  },
-  {
-    command: '/yw:probe-implementation <feature-slug> local',
+    command: '/yw:probe-implementation <feature-slug> <env-or-url> [--role <role>] [--build <id>]',
     title: 'Compare intent with the build',
-    purpose: 'Classify each observable AC as aligned, divergent, absent, unobservable, or blocked.',
+    purpose:
+      'Classify each observable criterion as aligned, divergent, not implemented, not observable, or blocked. Observed behavior is evidence, never requirement truth.',
+    args: [
+      SLUG,
+      {
+        token: '<env-or-url>',
+        required: true,
+        detail:
+          'Which running build to observe. Named and recorded, so a later divergence can be attributed to a version.',
+      },
+      {
+        token: '[--role <role>]',
+        required: false,
+        detail:
+          'Sign in as this role — behaviour and visibility usually differ by permission, and comparing as the wrong one produces false divergences.',
+      },
+      {
+        token: '[--build <id>]',
+        required: false,
+        detail: 'The exact build identifier, recorded in the comparison report.',
+      },
+    ],
+    example: '/yw:probe-implementation bin-pareto local --role qa',
     agents: 'implementation-prober',
   },
   {
-    command: '/yw:forge-cases <feature-slug> --scenario-type all',
-    title: 'Design executable cases',
+    command:
+      '/yw:forge-cases <feature-slug> [--scenario-type positive|functional|negative|edge|all] [--category CAT-NN] [--ac AC-NN]',
+    title: 'Design the cases',
     purpose:
-      'Create procedural manual scenarios with coverage, data, pacing, and visual dispositions.',
+      'Procedural manual scenarios per category, at the interface AND the API layer. Every category records an explicit visual disposition and an explicit API disposition.',
+    args: [
+      SLUG,
+      {
+        token: '[--scenario-type positive|functional|negative|edge|all]',
+        required: false,
+        detail:
+          'Which kind of scenario to design — this is the scenario tag, not the test level. A scoped run appends without declaring the feature complete.',
+      },
+      {
+        token: '[--category CAT-NN]',
+        required: false,
+        detail:
+          'Design the cases for one testable category. Each category becomes one feature file, so this is the natural unit of a review.',
+      },
+      {
+        token: '[--ac AC-NN]',
+        required: false,
+        detail:
+          'Design only the cases one acceptance criterion needs, leaving the rest of the feature untouched.',
+      },
+    ],
+    example: '/yw:forge-cases bin-pareto-export --scenario-type all',
     agents: 'test-case-designer',
   },
   {
-    command: '/yw:audit-cases <feature-slug>',
-    title: 'Audit the design independently',
+    command: '/yw:forge-security-tests <feature-slug> [--owasp A01,A07,...] [--category CAT-NN]',
+    title: 'Design the security cases',
     purpose:
-      'Challenge coverage, traceability, procedure, boundaries, and data feasibility before approval.',
-    agents: 'test-case-auditor',
+      "Author the OWASP 2025 categories no scanner can judge — access control, insecure design, authentication, security logging — against the requirement's own rules, never the app's current behavior.",
+    args: [
+      SLUG,
+      {
+        token: '[--owasp A01,A07,...]',
+        required: false,
+        detail:
+          'Limit to named categories. Defaults to every authored category that applies to the feature.',
+      },
+      {
+        token: '[--category CAT-NN]',
+        required: false,
+        detail:
+          'Author the security cases for one testable category only, rather than the whole feature.',
+      },
+    ],
+    example: '/yw:forge-security-tests bin-pareto-export --owasp A01,A07',
   },
   {
-    command: '/yw:gate-design <feature-slug>',
-    title: 'Assemble Design Gate evidence',
+    command: '/yw:update-cases <feature-slug> -- <what needs to change>',
+    title: 'Amend existing cases',
     purpose:
-      'Produce a decision-ready report. A named human signs or explicitly records a scoped bypass.',
+      'Change cases in place when a question is answered or an expected value was wrong. Preserves case ids and external keys, and records what the change invalidates.',
+    args: [
+      SLUG,
+      {
+        token: '-- <what needs to change>',
+        required: true,
+        detail:
+          'The amendment in your words, after a bare double dash. Use this rather than re-running Case Forge — re-forging renumbers ids and orphans the records bound to them.',
+      },
+    ],
+    example:
+      '/yw:update-cases bin-pareto-export -- "Q-01 answered: file name is wafer-bintype-date"',
+    agents: 'test-case-designer',
+  },
+  {
+    command: '/yw:gate-design <feature-slug> [--category CAT-NN] [approved]',
+    title: 'Assemble the Design Gate digest',
+    purpose:
+      'Counts, coverage, lint results, and every gap — with no verdict and no recommendation. A named human states the decision; it is recorded with a timestamp and unlocks the next stages.',
+    args: [
+      SLUG,
+      {
+        token: '[--category CAT-NN]',
+        required: false,
+        detail:
+          'Gate one category so teams can approve and sync categories independently, in parallel.',
+      },
+      {
+        token: '[approved]',
+        required: false,
+        detail:
+          'Records your approval of the digest in front of you. "continue" and "go ahead" are not approvals — the skill will ask which you mean.',
+      },
+    ],
+    example: '/yw:gate-design bin-pareto-export',
+  },
+  {
+    command: '/yw:sync-cases <feature-slug> [--live] [--category CAT-NN]',
+    title: 'Push cases to the tracker',
+    purpose:
+      'Dry-run by default. Live requires a recorded human Design Gate approval for that exact scope. API, contract, and performance cases stay repository-only.',
+    args: [
+      SLUG,
+      {
+        token: '[--live]',
+        required: false,
+        detail:
+          'Actually writes to the tracker. Without it you get the exact create/update plan and nothing leaves the repository — always read that plan first.',
+      },
+      {
+        token: '[--category CAT-NN]',
+        required: false,
+        detail: 'Sync one approved category. The approval check narrows to that category row.',
+      },
+    ],
+    example: '/yw:sync-cases bin-pareto-export',
   },
   {
     command:
-      '/yw:ui-recon <feature-slug> local --with-api-recon --spec http://127.0.0.1:5000/openapi.json',
-    title: 'Recon the running application',
-    purpose: 'Capture stable UI contracts and API behavior from one coordinated browser session.',
-    agents: 'ui-recon-agent · implementation-prober',
-  },
-  {
-    command: '/yw:execute-cases <feature-slug> local --continue-on-failure',
-    title: 'Execute and preserve evidence',
-    purpose: 'Run approved cases with isolated state, exact step verdicts, and failure evidence.',
-  },
-  {
-    command: '/yw:forge-scripts <feature-slug> --scenario-type all',
-    title: 'Automate approved cases',
-    purpose: 'Generate runnable automation without removing the permanent manual record.',
-    agents: 'e2e-scripter · plotly-specialist when applicable',
-  },
-  {
-    command: '/yw:audit-scripts <feature-slug>',
-    title: 'Audit automation',
+      '/yw:ui-recon <feature-slug> [env] [--with-api-recon] [--spec <path-or-url>] [--with-case-execution] [--tc <id,id,...>] [--role <role>] [--continue-on-failure]',
+    title: 'Recon the running interface',
     purpose:
-      'Independently inspect assertions, selectors, synchronization, isolation, and traceability.',
+      'Walk the approved scope in the live application, harvest stable locators, and flag observability gaps. Can drive API recon and case execution in the same browser session.',
+    args: [
+      SLUG,
+      {
+        token: '[env]',
+        required: false,
+        detail:
+          'Which environment to walk. Recon observes a real build, so the environment it names is recorded as the evidence source.',
+      },
+      {
+        token: '[--with-api-recon]',
+        required: false,
+        detail:
+          'Observe network behaviour during the same walk, instead of a second session that has to reproduce the state.',
+      },
+      {
+        token: '[--spec <path-or-url>]',
+        required: false,
+        detail: 'The served API document to reconcile observed calls against.',
+      },
+      {
+        token: '[--with-case-execution]',
+        required: false,
+        detail: 'Record per-step verdicts while walking, so recon doubles as an execution pass.',
+      },
+      {
+        token: '[--tc <id,id,...>]',
+        required: false,
+        detail: 'Limit to named cases rather than the whole approved scope.',
+      },
+      {
+        token: '[--role <role>]',
+        required: false,
+        detail:
+          'Which role to sign in as. What a screen exposes usually differs by permission, so the inventory is only valid for the role that produced it.',
+      },
+      {
+        token: '[--continue-on-failure]',
+        required: false,
+        detail:
+          'Keep going past a failing case to gather the rest. Stop instead if the failure corrupts shared state.',
+      },
+    ],
+    example:
+      '/yw:ui-recon bin-pareto-export local --with-api-recon --spec http://127.0.0.1:5000/openapi.json',
+    agents: 'ui-recon-agent',
+  },
+  {
+    command: '/yw:api-recon <feature-slug> [env] [--spec <path-or-url>] [--capture-ui]',
+    title: 'Reconcile the API surface',
+    purpose:
+      'Build the operation inventory from the served document and live evidence, and record contract drift before tests are written against a stale shape.',
+    args: [
+      SLUG,
+      {
+        token: '[env]',
+        required: false,
+        detail:
+          'Which environment to observe. The inventory records it, because an endpoint present in one environment may not exist in another.',
+      },
+      {
+        token: '[--spec <path-or-url>]',
+        required: false,
+        detail:
+          'The OpenAPI document. Swagger alone is input to recon, never a substitute for checking what the service actually returns.',
+      },
+      {
+        token: '[--capture-ui]',
+        required: false,
+        detail:
+          'Drive the interface to provoke the calls, when an operation is hard to exercise directly.',
+      },
+    ],
+    example: '/yw:api-recon bin-pareto-export local --spec http://127.0.0.1:5000/openapi.json',
+  },
+  {
+    command: '/yw:desktop-recon <feature-slug> [--build <id>] [--category CAT-NN]',
+    title: 'Recon the desktop application',
+    purpose:
+      'Survey the WinForms screens, harvest Name Mapping candidates, and report every control with no developer-set Name — the desktop testability gap list, routed back to the dev track.',
+    args: [
+      SLUG,
+      {
+        token: '[--build <id>]',
+        required: false,
+        detail:
+          'Which desktop build was walked. Recorded, because the inventory is only true of that build.',
+      },
+      {
+        token: '[--category CAT-NN]',
+        required: false,
+        detail: "Walk one category's screens rather than the whole feature.",
+      },
+    ],
+    example: '/yw:desktop-recon bin-pareto --build 2026.8.1',
+    agents: 'desktop-recon-agent',
+  },
+  {
+    command:
+      '/yw:execute-cases <feature-slug> [env] [--tc <id,id,...>] [--role <role>] [--continue-on-failure]',
+    title: 'Execute and preserve evidence',
+    purpose:
+      'Run approved cases through one browser batch with isolated state, exact per-step verdicts, and a standardized failure packet.',
+    args: [
+      SLUG,
+      {
+        token: '[env]',
+        required: false,
+        detail:
+          'Which environment to execute against. It is recorded with the verdicts, because a pass on one environment is not a pass on another.',
+      },
+      {
+        token: '[--tc <id,id,...>]',
+        required: false,
+        detail:
+          'Run named cases only, rather than the whole approved set — for re-running just what failed.',
+      },
+      {
+        token: '[--role <role>]',
+        required: false,
+        detail:
+          'Execute as this role. A case whose expected result depends on permission must be run as the role it was written for.',
+      },
+      {
+        token: '[--continue-on-failure]',
+        required: false,
+        detail:
+          'Keep executing after a failure. Never use it after failed cleanup — the next case then starts from corrupted state and its verdict means nothing.',
+      },
+    ],
+    example: '/yw:execute-cases bin-pareto-export local --continue-on-failure',
+  },
+  {
+    command: '/yw:log-exploratory <feature-slug>',
+    title: 'Record exploratory work',
+    purpose:
+      'Consolidate charters and manual runs of the approved scope — or a recorded decision not to execute them. Manual evidence is gate evidence.',
+    args: [SLUG],
+    example: '/yw:log-exploratory bin-pareto-export',
+  },
+  {
+    command: '/yw:forge-oracle <feature-slug>',
+    title: 'Build the independent oracle',
+    purpose:
+      'Derive expected values from the approved rules and deterministic data, so a calculated result is never checked against the system that produced it.',
+    args: [SLUG],
+    example: '/yw:forge-oracle bin-pareto-export',
+  },
+  {
+    command:
+      '/yw:forge-scripts <feature-slug> [--scenario-type positive|functional|negative|edge|all] [--category CAT-NN] [--ac AC-NN] [--tc TC-id]',
+    title: 'Automate the web cases',
+    purpose:
+      'Implement the approved automation set without re-authoring the Gherkin. Adds the automated tag when runnable; the permanent manual tag stays. Refuses without a recorded Design Gate approval.',
+    args: [
+      SLUG,
+      {
+        token: '[--scenario-type positive|functional|negative|edge|all]',
+        required: false,
+        detail:
+          'Automate one kind of scenario this cycle. The work set is your selector intersected with the approved automate-now set — a selector can narrow it, never widen it.',
+      },
+      {
+        token: '[--category CAT-NN]',
+        required: false,
+        detail:
+          'Automate one category — one category is one feature file, so this keeps a cycle to a reviewable slice.',
+      },
+      {
+        token: '[--ac AC-NN]',
+        required: false,
+        detail: 'Automate the scenarios covering one criterion.',
+      },
+      {
+        token: '[--tc TC-id]',
+        required: false,
+        detail:
+          'Automate one named case. Useful for finishing a straggler without reopening the whole category.',
+      },
+    ],
+    example: '/yw:forge-scripts bin-pareto-export --scenario-type functional',
+    agents: 'e2e-scripter · plotly-specialist when charts are in scope',
+  },
+  {
+    command: '/yw:forge-desktop-scripts <feature-slug> [--category CAT-NN] [--tc TC-id]',
+    title: 'Automate the desktop cases',
+    purpose:
+      "Import the same feature files into TestComplete's Scenarios item and bind Python step definitions through Name Mapping aliases. One case of record, two runners.",
+    args: [
+      SLUG,
+      {
+        token: '[--category CAT-NN]',
+        required: false,
+        detail: 'Automate one category of desktop-tagged scenarios.',
+      },
+      {
+        token: '[--tc TC-id]',
+        required: false,
+        detail:
+          'Automate one named desktop case. Selection is always on the desktop surface tag, never on a test level.',
+      },
+    ],
+    example: '/yw:forge-desktop-scripts bin-pareto --category CAT-02',
+    agents: 'testcomplete-scripter',
+  },
+  {
+    command:
+      '/yw:forge-api-tests <feature-slug> [--stack <profile-name>] [--tc TC-id] [--operation operation-id] [--layer contract|integration|ui-interception|fuzz|all]',
+    title: 'Automate the API cases',
+    purpose:
+      'Typed clients, runtime schemas, and contract or integration tests. The fuzz layer generates cases from the OpenAPI schema to find what example-based tests miss.',
+    args: [
+      SLUG,
+      {
+        token: '[--stack <profile-name>]',
+        required: false,
+        detail: "Which stack's client and test framework to build against.",
+      },
+      {
+        token: '[--tc TC-id]',
+        required: false,
+        detail: 'Implement one approved case rather than the whole set.',
+      },
+      {
+        token: '[--operation operation-id]',
+        required: false,
+        detail:
+          'Target one API operation from the recon inventory, instead of every operation the feature touches.',
+      },
+      {
+        token: '[--layer contract|integration|ui-interception|fuzz|all]',
+        required: false,
+        detail:
+          'Contract checks status, headers and schema; integration checks business state; ui-interception checks request-driven interface behaviour; fuzz generates cases from the schema.',
+      },
+    ],
+    example: '/yw:forge-api-tests bin-pareto-export --layer contract',
+  },
+  {
+    command:
+      '/yw:forge-performance-tests <feature-slug> [--stack <profile-name>] [--profile smoke|load|spike|stress|endurance] [--operation operation-id]',
+    title: 'Automate the workload',
+    purpose:
+      "Guarded k6 workloads with thresholds sourced from the requirement's stated objectives — never an inferred number — and an explicit target authorization.",
+    args: [
+      SLUG,
+      {
+        token: '[--stack <profile-name>]',
+        required: false,
+        detail:
+          'Which stack the workload runs against — it decides the client, the base URL convention, and how the run is launched.',
+      },
+      {
+        token: '[--profile smoke|load|spike|stress|endurance]',
+        required: false,
+        detail:
+          'Smoke proves the script is correct; load is expected traffic; spike a sudden surge; stress finds the breaking point; endurance finds leaks. Pick the smallest that answers your question.',
+      },
+      {
+        token: '[--operation operation-id]',
+        required: false,
+        detail:
+          'Which API operation the workload drives. Without it the skill covers every operation the requirement sets an objective for.',
+      },
+    ],
+    example: '/yw:forge-performance-tests bin-pareto-export --profile smoke',
+  },
+  {
+    command:
+      '/yw:scan-security <scope> [--verbs deps-scan,sast,baseline-scan,api-scan,fuzz] [--target <url> --authorize] [--env <name>]',
+    title: 'Run and triage the scanners',
+    purpose:
+      'Dependencies and static analysis read the repository and need no authorization. Active scans send attack traffic and refuse without an explicit named target.',
+    args: [
+      {
+        token: '<scope>',
+        required: true,
+        detail:
+          'The feature or area to scan. It names the report and scopes which findings are considered in-scope for triage.',
+      },
+      {
+        token: '[--verbs deps-scan,sast,baseline-scan,api-scan,fuzz]',
+        required: false,
+        detail:
+          'deps-scan and sast read the repository and are safe to run always. baseline-scan, api-scan and fuzz reach a running target.',
+      },
+      {
+        token: '[--target <url> --authorize]',
+        required: false,
+        detail:
+          'Required together for any active scan. Without both, the skill refuses — an active scan sends attack traffic, so it is never assumed to be fine.',
+      },
+      {
+        token: '[--env <name>]',
+        required: false,
+        detail:
+          'Which environment. A shared environment is refused outright; production needs an approved window stated in the request.',
+      },
+    ],
+    example: '/yw:scan-security bin-pareto-export --verbs deps-scan,sast',
+    agents: 'security-analyst',
+  },
+  {
+    command:
+      '/yw:audit-scripts <feature-slug> [branch] [--scenario-type positive|functional|negative|edge|all] [--category CAT-NN] [--ac AC-NN] [--tc TC-id]',
+    title: 'Review the automation (advisory)',
+    purpose:
+      'An independent read for self-passing tests, missing independent truth, brittle locators, and unsafe retries. Holds no ledger row and blocks nothing — run it because it is useful.',
+    args: [
+      SLUG,
+      {
+        token: '[branch]',
+        required: false,
+        detail: 'Which branch to review. Defaults to the current one.',
+      },
+      {
+        token: '[--scenario-type positive|functional|negative|edge|all]',
+        required: false,
+        detail: 'Narrow to one kind of scenario. This is the scenario tag, not the test level.',
+      },
+      {
+        token: '[--category CAT-NN]',
+        required: false,
+        detail: 'Narrow to one testable category — one category is one feature file.',
+      },
+      {
+        token: '[--ac AC-NN]',
+        required: false,
+        detail: 'Narrow to the scenarios covering one acceptance criterion.',
+      },
+      {
+        token: '[--tc TC-id]',
+        required: false,
+        detail:
+          'Narrow to one named case. Any of these four selectors scopes the review, and a scoped review states exactly which cases it covered so nobody reads it as feature-wide.',
+      },
+    ],
+    example: '/yw:audit-scripts bin-pareto-export',
     agents: 'script-auditor',
   },
   {
-    command: '/yw:green-run <feature-slug>',
+    command:
+      '/yw:green-run <feature-slug> [branch] [--scenario-type positive|functional|negative|edge|all] [--category CAT-NN] [--ac AC-NN] [--tc TC-id]',
     title: 'Prove repeatability',
-    purpose: 'Record three consecutive green runs before Merge Gate evidence is assembled.',
+    purpose:
+      'Three consecutive fully green runs, every run recorded and every failure diagnosed. Any fix restarts the streak, because the streak proves the determinism of exactly what ran.',
+    args: [
+      SLUG,
+      {
+        token: '[branch]',
+        required: false,
+        detail:
+          'Which branch to run. Defaults to the current one; the branch is recorded with the evidence so a streak cannot be assembled from different branches.',
+      },
+      {
+        token: '[--scenario-type positive|functional|negative|edge|all]',
+        required: false,
+        detail: 'Narrow to one kind of scenario. This is the scenario tag, not the test level.',
+      },
+      {
+        token: '[--category CAT-NN]',
+        required: false,
+        detail: 'Narrow to one testable category — one category is one feature file.',
+      },
+      {
+        token: '[--ac AC-NN]',
+        required: false,
+        detail: 'Narrow to the scenarios covering one acceptance criterion.',
+      },
+      {
+        token: '[--tc TC-id]',
+        required: false,
+        detail:
+          'Narrow to one named case. Any of these four selectors runs a subset — useful iteration evidence, labelled as such. A subset never stands in for the feature, and only full runs count towards a stability streak.',
+      },
+    ],
+    example: '/yw:green-run bin-pareto-export',
+    agents: 'flake-hunter on a failure',
   },
   {
     command: '/yw:gate-merge <feature-slug>',
-    title: 'Assemble Merge Gate evidence',
-    purpose: 'Report readiness honestly; the human decision remains separate from the evidence.',
+    title: 'Assemble the Merge Gate digest',
+    purpose:
+      'Run history, lint, lifecycle integrity, coverage rungs, observability gaps, and every gap listed plainly. The approval is a QA decision — it never merges the branch.',
+    args: [SLUG],
+    example: '/yw:gate-merge bin-pareto-export',
   },
   {
     command: '/yw:testops-promote <feature-slug>',
-    title: 'Promote to CI',
-    purpose: 'Run the suite in CI with durable evidence and fail-on-flake behavior.',
+    title: 'Promote into CI',
+    purpose:
+      'Wire the slices, reporting, fail-on-flake behavior, and durable evidence. Desktop suites additionally need an interactive-session runner.',
+    args: [SLUG],
+    example: '/yw:testops-promote bin-pareto-export',
     agents: 'testops-engineer',
   },
   {
-    command: '/yw:gate-ops <feature-slug>',
-    title: 'Finish the automation lifecycle',
+    command: '/yw:gate-ops <feature-slug> [N-runs]',
+    title: 'Assemble the Ops Gate digest',
     purpose:
-      'Assemble the five-run, flake-rate, synchronization, and manual-only evidence for human review.',
+      'Real CI history, flake rate against actual executions, report trends, external sync, and the manual-only inventory. A recorded approval marks the automation Done.',
+    args: [
+      SLUG,
+      {
+        token: '[N-runs]',
+        required: false,
+        detail:
+          'How many consecutive pipeline runs form the evidence window. Defaults to 5 — raise it for a suite you have reason to distrust.',
+      },
+    ],
+    example: '/yw:gate-ops bin-pareto-export 5',
   },
+  ...crossSteps,
 ];
 
 function initialSection(value: string | null): GuideSection {
@@ -408,6 +1487,50 @@ function CoworkGuide({ completed, toggle }: ChecklistProps): ReactElement {
   );
 }
 
+/**
+ * What `--stack` selects. Dev-track skills read their layer names, conventions,
+ * commands and traps from the chosen profile — which is why one skill produces a
+ * SQL Server changeset on one stack and an EF Core migration on another, with no
+ * second skill existing.
+ */
+function StackGuide(): ReactElement {
+  return (
+    <section className="guide-stacks" aria-labelledby="guide-stacks-title">
+      <h3 id="guide-stacks-title">The stacks a dev skill can target</h3>
+      <p className="guide-stacks-lead">
+        Every dev skill accepts <code>--stack</code>. It is not decoration: it decides which layers
+        the design maps onto, which commands run, and which traps the skill watches for. Omit it and
+        the first stack in <code>probe.config.yaml</code> is used; name one that is not configured
+        and the skill stops rather than guessing.
+      </p>
+      <div className="guide-stack-grid">
+        {stackProfiles.map((stack) => (
+          <article className="guide-stack" key={stack.id}>
+            <header>
+              <code>{stack.id}</code>
+              <span className={`guide-stack-status is-${stack.status}`}>
+                {stack.status === 'current'
+                  ? 'dev track'
+                  : stack.status === 'provisional'
+                    ? 'provisional'
+                    : 'QA track'}
+              </span>
+            </header>
+            <h4>{stack.name}</h4>
+            <p>{stack.what}</p>
+            <p className="guide-stack-layers">
+              <strong>Layers:</strong> {stack.layers}
+            </p>
+            <p className="guide-stack-when">
+              <strong>Reach for it when:</strong> {stack.useWhen}
+            </p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function TrackGuide({
   kind,
   steps,
@@ -433,6 +1556,7 @@ function TrackGuide({
             ? 'QA artifacts are optional enrichment for Dev skills, never a precondition. Dev skills do not edit QA-owned artifacts.'
             : 'QA observes the build but does not edit application code. Human reviewers own gate approvals and scoped bypass decisions.'}
         </Alert>
+        {isDev ? <StackGuide /> : null}
         <Alert>
           <strong>Practice target — Wafer triage:</strong>{' '}
           {isDev
@@ -452,9 +1576,29 @@ function TrackGuide({
                   <span>{index + 1}</span>
                 </label>
                 <div className="guide-track-copy">
-                  <h3>{step.title}</h3>
+                  <h3>
+                    {step.title}
+                    {step.shared ? <span className="guide-shared-tag">both tracks</span> : null}
+                  </h3>
                   <p>{step.purpose}</p>
+                  <p className="guide-arg-label">Signature</p>
                   <CommandBlock command={step.command} compact />
+                  <p className="guide-arg-label">What each argument does</p>
+                  <dl className="guide-args">
+                    {step.args.map((arg) => (
+                      <div className="guide-arg" key={arg.token}>
+                        <dt>
+                          <code>{arg.token}</code>
+                          <span className={arg.required ? 'guide-arg-req' : 'guide-arg-opt'}>
+                            {arg.required ? 'required' : 'optional'}
+                          </span>
+                        </dt>
+                        <dd>{arg.detail}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <p className="guide-arg-label">Example</p>
+                  <CommandBlock command={step.example} compact />
                   {step.agents ? (
                     <p className="guide-agent">
                       <strong>Delegates to:</strong> {step.agents}
