@@ -1,14 +1,26 @@
 {
   "name": "local",
   "baseUrl": "http://localhost:3000",
-  "apiBaseUrl": "http://localhost:5000",
+  "apiBaseUrl": "http://127.0.0.1:5000",
   "auth": {
     "mock": true,
     "roles": {
-      "admin": { "username": "admin", "password": "admin" },
-      "dev": { "username": "dev", "password": "dev" },
-      "qa": { "username": "qa", "password": "qa" },
-      "viewer": { "username": "viewer", "password": "viewer" }
+      "admin": {
+        "username": "admin",
+        "password": "admin"
+      },
+      "dev": {
+        "username": "dev",
+        "password": "dev"
+      },
+      "qa": {
+        "username": "qa",
+        "password": "qa"
+      },
+      "viewer": {
+        "username": "viewer",
+        "password": "viewer"
+      }
     }
   },
   "db": {
