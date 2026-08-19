@@ -47,6 +47,25 @@ export class HttpError extends Error {
   }
 }
 
+/** The report options both the report call and the export call accept. */
+export interface BinParetoRequestOptions {
+  binType?: string;
+  specifyBins?: string;
+  sortBy?: string;
+  customBins?: number[];
+}
+
+/**
+ * The file name the server chose, from Content-Disposition.
+ *
+ * Preferred over inventing one on the client: the server already decided it,
+ * and two naming rules would drift. Falls back only if the header is absent.
+ */
+function filenameFromDisposition(header: string | null): string {
+  const match = header ? /filename="?([^";]+)"?/i.exec(header) : null;
+  return match?.[1]?.trim() || 'bin-pareto.csv';
+}
+
 export class WaferIntelligenceApi {
   public constructor(
     private readonly accessToken?: string,
@@ -134,8 +153,51 @@ export class WaferIntelligenceApi {
 
   public getBinPareto(
     waferSequence: number,
-    options: { binType?: string; specifyBins?: string; sortBy?: string; customBins?: number[] },
+    options: BinParetoRequestOptions,
   ): Promise<BinParetoResponse> {
+    return this.request(this.binParetoPath(waferSequence, 'bin-pareto', options));
+  }
+
+  /**
+   * The same report as a downloaded file.
+   *
+   * Fetched rather than linked because the API is bearer-authenticated and a
+   * plain anchor sends no Authorization header — the browser would follow the
+   * link and save the 401 body as the file.
+   */
+  public async downloadBinParetoCsv(
+    waferSequence: number,
+    options: BinParetoRequestOptions,
+  ): Promise<{ filename: string; blob: Blob }> {
+    const path = this.binParetoPath(waferSequence, 'bin-pareto.csv', options);
+    const headers = new Headers({ accept: 'text/csv' });
+    if (this.accessToken) headers.set('authorization', `Bearer ${this.accessToken}`);
+
+    const response = await fetch(path, { headers });
+    if (!response.ok) {
+      if (response.status === 401 && this.accessToken) this.onUnauthorized?.();
+      throw new HttpError(
+        response.status,
+        'EXPORT_FAILED',
+        'The report could not be downloaded. Run it again and retry.',
+      );
+    }
+    return {
+      filename: filenameFromDisposition(response.headers.get('content-disposition')),
+      blob: await response.blob(),
+    };
+  }
+
+  /**
+   * One query string for both the report and its export. Built in one place so
+   * the downloaded file cannot describe different options from the screen —
+   * the same reason the server shares its schema between the two operations.
+   */
+  private binParetoPath(
+    waferSequence: number,
+    resource: 'bin-pareto' | 'bin-pareto.csv',
+    options: BinParetoRequestOptions,
+  ): string {
     const params = new URLSearchParams();
     if (options.binType) params.set('binType', options.binType);
     if (options.specifyBins) params.set('specifyBins', options.specifyBins);
@@ -144,9 +206,7 @@ export class WaferIntelligenceApi {
       params.set('customBins', options.customBins.join(','));
     }
     const suffix = params.toString();
-    return this.request(
-      `/api/reports/wafers/${waferSequence}/bin-pareto${suffix ? `?${suffix}` : ''}`,
-    );
+    return `/api/reports/wafers/${waferSequence}/${resource}${suffix ? `?${suffix}` : ''}`;
   }
 
   public getClusterSummary(options: {
