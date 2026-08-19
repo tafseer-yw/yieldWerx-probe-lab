@@ -26,6 +26,25 @@ interface SkillArg {
   detail: string;
 }
 
+/**
+ * What this skill actually produced when both tracks were run on one small
+ * feature (the bin pareto CSV export) in this repository.
+ *
+ * `ran: false` is a first-class answer, not a gap in the page. Some skills had
+ * nothing to do for a feature this size, and some cannot run on a developer
+ * machine at all — saying which, and why, is more useful than an invented
+ * example that would read exactly like a real one.
+ */
+interface StepOutcome {
+  ran: boolean;
+  /** Plain sentences: what came out, or why nothing did. */
+  detail: string;
+  /** A short excerpt from the real artifact, copied verbatim. */
+  sample?: string;
+  /** Where the real artifact lives, so a reader can open it. */
+  path?: string;
+}
+
 interface TrackStep {
   /** The skill's real argument contract, as its SKILL.md declares it. */
   command: string;
@@ -35,6 +54,8 @@ interface TrackStep {
   args: SkillArg[];
   /** A runnable invocation against this lab's own features. */
   example: string;
+  /** What it produced for the worked example. */
+  outcome?: StepOutcome;
   agents?: string;
   /** Skills both tracks use. They appear in both lists on purpose. */
   shared?: boolean;
@@ -121,7 +142,7 @@ const sharedStart: TrackStep[] = [
       '/yw:forge-prd <feature-slug> [<the idea or problem, or a path to notes>] [--review | --sign-off "<name>"]',
     title: 'Write the requirement',
     purpose:
-      'Turn an idea into a PRD an executive, a developer, and a QA all read the same way. Lives in docs/PRDs with a draft to in-review to signed-off filename lifecycle; sign-off is a recorded human decision, never implied.',
+      'Writes down what we are building and why, in words an executive, a developer and a tester all read the same way. It asks you questions first and never invents a product decision — anything nobody has decided becomes an open question with a suggested answer.',
     args: [
       {
         token: '<feature-slug>',
@@ -142,6 +163,14 @@ const sharedStart: TrackStep[] = [
           'The lifecycle moves — use one or the other, never both. --review renames the draft to prd-in-review.md and names who should read it, changing no content. --sign-off "<name>" renames it to prd-signed-off.md and records that named human and a timestamp; it is only valid on their direct statement, because a bare "looks good" is not a sign-off.',
       },
     ],
+    outcome: {
+      ran: true,
+      detail:
+        'Produced a PRD with two user stories, four open questions it refused to answer on its own, and a Terms table. Every story carries an "In plain words" line for readers with no wafer-test background.',
+      sample:
+        'US-01 — Download the report I am looking at\nIn plain words: A pareto ranks the failure categories on a\nwafer from worst to least. Today those numbers live only on\nthe screen. This gives a button that saves them as a file.',
+      path: 'docs/PRDs/bin-pareto-export/prd-draft.md',
+    },
     example: '/yw:forge-prd bin-pareto-export "engineers retype pareto numbers by hand"',
     agents: 'requirement-clarifier',
     shared: true,
@@ -151,7 +180,7 @@ const sharedStart: TrackStep[] = [
       '/yw:probe-spec <feature-slug> [<spec-path-or-text>] [--migrate-format | --reconcile] [--compare-implementation <env-or-url>] [--role <role>] [--build <id>]',
     title: 'Make the requirement testable',
     purpose:
-      'The entry point of BOTH tracks. One spec-analysis.md per feature, jointly owned — whoever runs it second reads it rather than producing a second opinion.',
+      'Turns the PRD into a numbered checklist of things the product must do. Both tracks start here and share one copy — the developer and the tester are never working from two different readings of the same requirement.',
     args: [
       SLUG,
       {
@@ -185,6 +214,14 @@ const sharedStart: TrackStep[] = [
           'Records exactly which build was observed, so a later divergence can be attributed.',
       },
     ],
+    outcome: {
+      ran: true,
+      detail:
+        'Produced four acceptance criteria (AC-01 to AC-04) and two testable categories, each with a plain-words explanation and a note on where to check it. These ids are used by every later step on both tracks.',
+      sample:
+        'AC-01  Download the shown report as a file       e2e\nAC-02  Every row carries the five reported values  unit, e2e\nAC-03  No download is offered before a report runs  component\nAC-04  The file records the options that produced it unit, e2e',
+      path: '.probe/artifacts/bin-pareto-export/10-spec/spec-analysis.md',
+    },
     example: '/yw:probe-spec bin-pareto-export docs/PRDs/bin-pareto-export/prd-signed-off.md',
     agents: 'source-digester',
     shared: true,
@@ -196,7 +233,7 @@ const crossSteps: TrackStep[] = [
     command: '/yw:bug-report <feature-slug> <one-line-symptom>',
     title: 'File a defect candidate',
     purpose:
-      'Turn a symptom into a candidate with evidence. Filing to an external tracker stays a separate, authorized step.',
+      'Turns "it looked wrong" into something someone can act on: what you did, what happened, what should have happened, and how bad it is.',
     args: [
       SLUG,
       {
@@ -206,6 +243,11 @@ const crossSteps: TrackStep[] = [
           'What went wrong, in one sentence, as observed. The skill gathers the evidence around it rather than asking you to assemble a report.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        'Nothing to report — the two failures that appeared during this run were in the tests themselves and were fixed straight away, not defects in the product.',
+    },
     example: '/yw:bug-report bin-pareto "cumulative line exceeds 100% on retested wafers"',
     shared: true,
   },
@@ -213,7 +255,7 @@ const crossSteps: TrackStep[] = [
     command: '/yw:flake-triage <feature-slug-or-scenario> [evidence-path]',
     title: 'Diagnose an intermittent failure',
     purpose:
-      'Reproduce the instability deliberately and classify the mechanism. An application bug routes to /yw:fix-defect; a test bug is fixed on the branch.',
+      'Works out why a test sometimes passes and sometimes fails, and whether the fault is in the test or the product. Both happen, and the difference matters.',
     args: [
       {
         token: '<feature-slug-or-scenario>',
@@ -228,6 +270,11 @@ const crossSteps: TrackStep[] = [
           'A prior run log or report to start from, so the triage does not have to re-provoke a failure you already captured.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        'Nothing flaked. The scenarios were run repeatedly during the mutation checks and behaved identically each time.',
+    },
     example: '/yw:flake-triage TC-cluster-detection-014',
     agents: 'flake-hunter',
     shared: true,
@@ -236,7 +283,7 @@ const crossSteps: TrackStep[] = [
     command: '/yw:change-impact [base-ref]',
     title: 'Ask what a change breaks',
     purpose:
-      'Trace which cases, scripts, locators, and fixtures a code change invalidates — before it lands rather than after.',
+      'Given a change, tells you which cases and which requirements it touches — so nobody finds out in production.',
     args: [
       {
         token: '[base-ref]',
@@ -245,6 +292,11 @@ const crossSteps: TrackStep[] = [
           'The branch or commit to compare against. Defaults to the working tree against its base, so a bare call answers "what have I broken right now?".',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        "Not run as a step. The equivalent question was answered by the suite itself: moving the report's option rules into shared code could have changed the existing report, and the existing scenarios confirmed it did not.",
+    },
     example: '/yw:change-impact main',
     shared: true,
   },
@@ -252,7 +304,7 @@ const crossSteps: TrackStep[] = [
     command: '/yw:update-yieldwerx-knowledge <approved-change-request>',
     title: 'Record approved knowledge',
     purpose:
-      'Write a confirmed product fact, process amendment, or requirement decision into the knowledgebase so every later session and skill reads it.',
+      'Adds a confirmed product fact to the shared knowledge base, so the next person does not have to rediscover it.',
     args: [
       {
         token: '<approved-change-request>',
@@ -261,6 +313,10 @@ const crossSteps: TrackStep[] = [
           'The change, in the words it was approved in. Approved facts only — this is not a place to record a guess, and the skill will not promote one.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail: 'Nothing to add. This feature produced no new product fact, only a new capability.',
+    },
     example:
       '/yw:update-yieldwerx-knowledge "Bin Pareto replaces Bin Histogram; the cumulative line is required"',
     shared: true,
@@ -269,7 +325,7 @@ const crossSteps: TrackStep[] = [
     command: "/yw:handoff '[<slug>] | close <slug> | list'",
     title: 'Stop without losing the thread',
     purpose:
-      'Write the picture the next session needs: what changed, what is verified with the real command output, what is red, and the one next step. Facts come from git, never memory.',
+      'Writes down what the next session needs to know when work stops mid-way: what is done, what is verified, what is still broken, and the one next thing to do.',
     args: [
       {
         token: '[<slug>]',
@@ -289,6 +345,11 @@ const crossSteps: TrackStep[] = [
         detail: 'Shows every open handoff with its branch, age, and next step.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        'Not needed — the work finished inside one session. Its value shows up when a context runs out or the day ends mid-feature.',
+    },
     example: '/yw:handoff bin-pareto-export',
     shared: true,
   },
@@ -300,7 +361,7 @@ const devSteps: TrackStep[] = [
     command: '/yw:forge-tech-design <feature-slug> [--stack <profile-name>] [--ac AC-NN]',
     title: 'Design against the real layers',
     purpose:
-      'The spec analysis becomes a stack-fitted design: layer map, data model, API contract, tenancy and authorization, testability obligations, a threat sketch, and decision records. Refuses while a blocking question is open.',
+      'Decides how to build it: which parts of the code change, what the new web address looks like, who is allowed to use it, and what could go wrong. It refuses to design while important questions are still unanswered.',
     args: [
       SLUG,
       {
@@ -316,6 +377,14 @@ const devSteps: TrackStep[] = [
           'Design only the named criterion instead of the whole feature. Useful when one criterion is unblocked and the rest are still open questions.',
       },
     ],
+    outcome: {
+      ran: true,
+      detail:
+        "Mapped the change across four layers and wrote one decision record. It also refused to finish cleanly — it returned NEEDS_INFO because the PRD's four open questions were still unanswered, and named which ones blocked what.",
+      sample:
+        "route   add GET .../bin-pareto.csv, same options as the report\ndomain  reuse deriveBinPareto() unchanged; add a formatter\nauth    reuse requireRole('viewer') — both return the same numbers\nstatus  NEEDS_INFO — Q-01 controls the file name",
+      path: '.probe/artifacts/bin-pareto-export/60-design/tech-design.md',
+    },
     example: '/yw:forge-tech-design bin-pareto-export --stack node-ts-spa',
     agents: 'tech-designer',
   },
@@ -324,7 +393,7 @@ const devSteps: TrackStep[] = [
       '/yw:scaffold-app <app-slug> [--stack <profile-name>] [--surfaces api,ui,db,auth,queue] [--dry-run]',
     title: 'Start a new application',
     purpose:
-      'Create the contracts, datastore, roles, documented API, and testability surface before any feature exists.',
+      'Stands up a brand-new application with the wiring already in place. For starting something, not for changing something.',
     args: [
       {
         token: '<app-slug>',
@@ -349,6 +418,10 @@ const devSteps: TrackStep[] = [
           'Prints what would be created without writing anything. Worth doing first on a stack you have not scaffolded before.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail: 'Not applicable — this feature was added to an app that already existed.',
+    },
     example: '/yw:scaffold-app wafer-portal --stack node-ts-spa --surfaces api,ui,db',
   },
   {
@@ -356,7 +429,7 @@ const devSteps: TrackStep[] = [
       '/yw:build-feature <feature-slug> [--stack <profile-name>] [--layer backend|frontend|both] [--ac AC-NN] [--category CAT-NN] [--requirement <path>] [--no-requirement "<reason>"]',
     title: 'Build the feature',
     purpose:
-      'Clarify intent, implement whole journeys, and loop on exact failures. A backend-led run emits an FE handoff report so frontend work starts from a contract, not re-discovery.',
+      'Writes the actual code, following the design rather than improvising. It builds a whole journey end to end, and keeps going until the real commands pass instead of stopping at "it should work now".',
     args: [
       SLUG,
       {
@@ -393,6 +466,14 @@ const devSteps: TrackStep[] = [
           'Build with no requirement at all — allowed, but the reason is recorded in the build report where a reviewer will see it.',
       },
     ],
+    outcome: {
+      ran: true,
+      detail:
+        "Changed five files. The report's option rules moved into one shared place so the screen and the file cannot drift apart, and the download reuses the report's existing permission check rather than inventing a second one.",
+      sample:
+        'api/src/bin-pareto-csv.ts      new — turns a report into CSV text\napi/src/routes/reports.ts      new download address, shared options\napi/src/routes/schemas.ts      option rules moved here, now shared\nweb/src/api.ts                 fetches with the sign-in token\nweb/src/BinParetoPage.tsx      the Download CSV button',
+      path: 'probe-lab-app/api/src/bin-pareto-csv.ts',
+    },
     example: '/yw:build-feature bin-pareto-export --stack node-ts-spa --layer backend',
     agents: 'requirement-clarifier · testability-scout · build-verifier',
   },
@@ -401,7 +482,7 @@ const devSteps: TrackStep[] = [
       '/yw:forge-migration <feature-slug or change description> [--stack <profile-name>] [--data-only]',
     title: 'Change the database safely',
     purpose:
-      'Migrations under the rules that make them boring: never edit an applied migration, additive first, two-step NOT NULL, idempotent seeds, and an honest rollback story.',
+      'Writes database changes that are safe to run on a live system, under rules that keep them boring — never edit one that has already run, add before you remove.',
     args: [
       {
         token: '<feature-slug or change description>',
@@ -422,6 +503,11 @@ const devSteps: TrackStep[] = [
           'A data correction with no schema change. Keeps the safety rules that apply to rows and skips the ones about columns.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        'Deliberately not needed, and the design says so in writing. The export is built entirely from data the report already reads, so there is no new table, column or seed — recorded as a decision rather than left as an oversight.',
+    },
     example: '/yw:forge-migration "add export_audit table" --stack node-ts-spa',
     agents: 'build-verifier',
   },
@@ -429,7 +515,7 @@ const devSteps: TrackStep[] = [
     command: '/yw:forge-unit-tests <feature-slug> [--stack <profile-name>] [--ac AC-NN]',
     title: 'Cover what QA routed to you',
     purpose:
-      'The criteria the spec sent to dev-handoff.md, tested at unit level with expected values derived from the rule — never read back from the code under test.',
+      'Writes the small, fast tests that check the fiddly logic directly, without a browser. It covers exactly the criteria the spec said belong at this level, so nothing is left to "someone will test that later".',
     args: [
       SLUG,
       {
@@ -444,6 +530,14 @@ const devSteps: TrackStep[] = [
         detail: 'Cover one routed criterion instead of the whole hand-off list.',
       },
     ],
+    outcome: {
+      ran: true,
+      detail:
+        'Ten tests on the file builder, covering AC-02 and AC-04. Two of them exist for failures that stay silent rather than crashing: a bin name containing a comma would shift every later column, and one containing a quote must be doubled.',
+      sample:
+        '✔ AC-02 — every bin becomes one row carrying the five values\n✔ AC-04 — the file states the options it was run with\n✔ a bin name containing a comma stays in one column\n✔ a lot code with characters a file system rejects is made safe\n  10 pass, 0 fail',
+      path: 'probe-lab-app/tests/bin-pareto-csv.test.ts',
+    },
     example: '/yw:forge-unit-tests bin-pareto-export --ac AC-02',
     agents: 'build-verifier',
   },
@@ -452,7 +546,7 @@ const devSteps: TrackStep[] = [
       '/yw:revise-feature <feature-slug> -- <what must change> [--breaking-ok "<authorization>"] [--ac AC-NN]',
     title: 'Change existing behavior',
     purpose:
-      'Inventory current behavior first, stay compatible by default, and emit the list of QA artifacts the change invalidates.',
+      'Changes something that already works, without quietly breaking whoever depends on it. It makes you say out loud when a change would break existing behaviour.',
     args: [
       SLUG,
       {
@@ -474,6 +568,11 @@ const devSteps: TrackStep[] = [
           'Scope the revision to what one acceptance criterion requires, leaving the rest of the feature alone.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        "Not used: this feature was additive, so nothing that already worked changed shape. The one thing that came close — moving the report's option rules into a shared place — kept its behaviour identical, which is why the existing tests still pass untouched.",
+    },
     example: '/yw:revise-feature bin-pareto -- "sort by bin number by default"',
     agents: 'requirement-clarifier · testability-scout · build-verifier',
   },
@@ -482,7 +581,7 @@ const devSteps: TrackStep[] = [
       '/yw:fix-defect <feature-slug> "<defect-slug-or-symptom>" [--candidate <path>] [--tc TC-id] [--no-test "<reason>"]',
     title: 'Fix a defect',
     purpose:
-      'Write the failing regression test FIRST and record that it failed, then the smallest correct fix, then verify. A test written after the fix cannot fail and proves nothing.',
+      'Fixes a reported bug and adds the test that would have caught it, so it cannot come back unnoticed.',
     args: [
       SLUG,
       {
@@ -509,6 +608,11 @@ const devSteps: TrackStep[] = [
           'Skip the failing-test-first rule. The reason lands in the fix report where a reviewer sees it — this is the exception, not a shortcut.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        'No defect was reported against this feature. The two failures that did surface during the run were caught by the suite itself and fixed in the same commit.',
+    },
     example: '/yw:fix-defect bin-pareto "cumulative percentage exceeds 100"',
     agents: 'build-verifier',
   },
@@ -516,7 +620,7 @@ const devSteps: TrackStep[] = [
     command: '/yw:sync-styleguide <feature-slug or --all> [--stack <profile-name>] [--fix]',
     title: 'Hold the design system',
     purpose:
-      "Reconcile the implemented interface against this repository's own STYLEGUIDE.md and tokens. Reports drift; --fix applies only the mechanical corrections.",
+      'Checks the interface you built against your own design rules, and can fix the differences.',
     args: [
       {
         token: '<feature-slug or --all>',
@@ -537,6 +641,11 @@ const devSteps: TrackStep[] = [
           'Applies only mechanical corrections — a raw colour to the token that owns it, an off-scale value to the nearest step. Anything needing judgement stays a reported finding.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        'Not run as a step, though the rule it enforces was followed: the download button reuses the existing button style and a new icon drawn to match the upload one, rather than introducing a new look.',
+    },
     example: '/yw:sync-styleguide bin-pareto-export --fix',
     agents: 'build-verifier',
   },
@@ -545,7 +654,7 @@ const devSteps: TrackStep[] = [
       '/yw:seed-testability <feature-slug> [--from-recon <path>] [--surface ui|api|results|all] [--rank high|medium|all]',
     title: 'Repair legacy testability gaps',
     purpose:
-      'Add stable selectors, served API documentation, and readable business values to code written before the obligation existed — including WinForms controls with no Name set.',
+      'Adds the small handles automated tests need to find things on screen. Doing this in the app is a developer job — without it, testers resort to brittle tricks that break the next time the page is restyled.',
     args: [
       SLUG,
       {
@@ -567,6 +676,14 @@ const devSteps: TrackStep[] = [
           'How deep to go. Start at high — those are the gaps actually blocking a test today.',
       },
     ],
+    outcome: {
+      ran: true,
+      detail:
+        "Added two handles. The repository's own rules refused the test that tried to work around the missing one with a CSS selector, which is exactly the point: the gap got fixed in the app instead of worked around in the test.",
+      sample:
+        'data-testid="bin-pareto-download-csv"   the button\ndata-testid="bin-pareto-rows"          the table body\n\nBefore: eslint — Raw CSS locators are forbidden in steps',
+      path: 'probe-lab-app/web/src/BinParetoPage.tsx',
+    },
     example: '/yw:seed-testability bin-pareto --surface all --rank high',
     agents: 'testability-scout',
   },
@@ -575,7 +692,7 @@ const devSteps: TrackStep[] = [
       '/yw:review-code <feature-slug> [branch|--staged|--files <path,...>] [--focus correctness|security|data|observability|all] [--depth quick|thorough]',
     title: 'Review before the pull request',
     purpose:
-      'Independent adversarial review of the working tree. Produces GO / NO-GO evidence a human weighs; it never edits what it reviews.',
+      'Reads the change the way a careful reviewer would, before anyone else has to. It checks the code against what the requirement actually asked for, not just whether it compiles.',
     args: [
       SLUG,
       {
@@ -597,6 +714,11 @@ const devSteps: TrackStep[] = [
           'Quick is a fast pass for a small change; thorough reads the surrounding code and the requirement too.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        'Not run as its own step. The review happened inside the build instead, which is how it usually goes on a change this size — but that means no separate review record exists, and on a larger change you would want one.',
+    },
     example: '/yw:review-code bin-pareto-export --staged --depth thorough',
     agents: 'code-reviewer · build-verifier',
   },
@@ -605,7 +727,7 @@ const devSteps: TrackStep[] = [
       '/yw:ship-change <feature-slug> [commit|describe|both] [--push] [--open-pr] [--base <ref>]',
     title: 'Commit and describe',
     purpose:
-      'Hygiene checks, conventional commits, and a pull-request body carrying the evidence. Pushing and opening the request need explicit authorization.',
+      'Turns finished work into a commit with a message that explains why, not just what. It can open the pull request too, and it never merges anything itself.',
     args: [
       SLUG,
       {
@@ -631,6 +753,13 @@ const devSteps: TrackStep[] = [
         detail: 'The branch to target, when it is not the repository default.',
       },
     ],
+    outcome: {
+      ran: true,
+      detail:
+        "One commit carrying both tracks' work, with a message recording what was verified and — just as important — what was deliberately left for a human: the PRD's open questions and the unapproved Design Gate.",
+      sample:
+        'feat(bin-pareto): export the report as CSV, built through\n                  both PROBE tracks\n\n 11 files changed, 4 scenarios, 10 unit tests',
+    },
     example: '/yw:ship-change bin-pareto-export both',
     agents: 'code-reviewer',
   },
@@ -638,7 +767,7 @@ const devSteps: TrackStep[] = [
     command: '/yw:review-pr <pr-number-or-url> [--repo <path>] [--post]',
     title: 'Review the opened request',
     purpose:
-      'Read the pull request as its reviewer: claims checked against the diff, coverage by criterion, and what it invalidates downstream. It never merges.',
+      'Reviews an opened pull request as its reviewer, checking the claims in the description against what the code actually does. It never merges.',
     args: [
       {
         token: '<pr-number-or-url>',
@@ -658,6 +787,11 @@ const devSteps: TrackStep[] = [
           'Posts the findings to the host as review comments. Off by default: the review artifact stands on its own, and posting is an outward action.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        'No pull request exists yet for this work, so there was nothing to review. It reads the diff against what the description claims, which is the check a human reviewer most often skips.',
+    },
     example: '/yw:review-pr 42',
     agents: 'code-reviewer',
   },
@@ -670,7 +804,7 @@ const qaSteps: TrackStep[] = [
     command: '/yw:ask-yieldwerx <question>',
     title: 'Get product context',
     purpose:
-      'Ask the knowledgebase about terms, modules, calculations, or workflows. Context explains vocabulary; it can never create or complete a requirement.',
+      'Answers product questions from the company knowledge base and cites where each answer came from. It explains what words mean; it never replaces the approved requirement.',
     args: [
       {
         token: '<question>',
@@ -679,6 +813,11 @@ const qaSteps: TrackStep[] = [
           'Ask in plain words. Answers are sourced and cited — an uncited claim is treated as unknown rather than guessed.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        "Not needed. The terms this feature uses — bin pareto, hard bin, soft bin — were already defined in the PRD's own Terms table, which is where a reader looks first.",
+    },
     example: '/yw:ask-yieldwerx "what is the difference between hard bin and soft bin?"',
     agents: 'knowledgebase routing skill',
   },
@@ -686,7 +825,7 @@ const qaSteps: TrackStep[] = [
     command: '/yw:probe-implementation <feature-slug> <env-or-url> [--role <role>] [--build <id>]',
     title: 'Compare intent with the build',
     purpose:
-      'Classify each observable criterion as aligned, divergent, not implemented, not observable, or blocked. Observed behavior is evidence, never requirement truth.',
+      'Compares a running build against the written requirement and reports where they differ. Useful when the software already exists and nobody is quite sure what it does.',
     args: [
       SLUG,
       {
@@ -707,6 +846,11 @@ const qaSteps: TrackStep[] = [
         detail: 'The exact build identifier, recorded in the comparison report.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        'Nothing to compare against — this feature did not exist yet, so the requirement had no implementation to check it against. It comes into its own on a feature that was built before it was written down.',
+    },
     example: '/yw:probe-implementation bin-pareto local --role qa',
     agents: 'implementation-prober',
   },
@@ -715,7 +859,7 @@ const qaSteps: TrackStep[] = [
       '/yw:forge-cases <feature-slug> [--scenario-type positive|functional|negative|edge|all] [--category CAT-NN] [--ac AC-NN]',
     title: 'Design the cases',
     purpose:
-      'Procedural manual scenarios per category, at the interface AND the API layer. Every category records an explicit visual disposition and an explicit API disposition.',
+      'Writes the test cases in plain Given/When/Then language, so anyone can read what will be checked without knowing how it is automated. These are the cases a human approves before any automation is written.',
     args: [
       SLUG,
       {
@@ -737,6 +881,14 @@ const qaSteps: TrackStep[] = [
           'Design only the cases one acceptance criterion needs, leaving the rest of the feature untouched.',
       },
     ],
+    outcome: {
+      ran: true,
+      detail:
+        'Two case files, four scenarios, covering both categories from the spec. Each scenario is tagged with the criterion it proves, so coverage can be traced back to the requirement rather than counted.',
+      sample:
+        'Scenario: No download is offered before a report has been run\n  When the QA user opens the bin pareto screen\n  Then the "Download CSV" button is not offered\n\n  tags: @ac:AC-03 @cat:CAT-01 @manual',
+      path: 'features/bin-pareto-export/downloading-the-report.feature',
+    },
     example: '/yw:forge-cases bin-pareto-export --scenario-type all',
     agents: 'test-case-designer',
   },
@@ -744,7 +896,7 @@ const qaSteps: TrackStep[] = [
     command: '/yw:forge-security-tests <feature-slug> [--owasp A01,A07,...] [--category CAT-NN]',
     title: 'Design the security cases',
     purpose:
-      "Author the OWASP 2025 categories no scanner can judge — access control, insecure design, authentication, security logging — against the requirement's own rules, never the app's current behavior.",
+      'Writes the security cases no scanner can judge — who is allowed to do what, and whether the system says so consistently.',
     args: [
       SLUG,
       {
@@ -760,13 +912,18 @@ const qaSteps: TrackStep[] = [
           'Author the security cases for one testable category only, rather than the whole feature.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        "Not run as a step, though the question it asks was answered in the design: the download reuses the report's existing permission check, because two sets of rules for the same numbers is how they eventually disagree. That reuse is verified — signed out, the download returns 401.",
+    },
     example: '/yw:forge-security-tests bin-pareto-export --owasp A01,A07',
   },
   {
     command: '/yw:update-cases <feature-slug> -- <what needs to change>',
     title: 'Amend existing cases',
     purpose:
-      'Change cases in place when a question is answered or an expected value was wrong. Preserves case ids and external keys, and records what the change invalidates.',
+      'Changes existing cases when the requirement moves, keeping their ids so history is not lost.',
     args: [
       SLUG,
       {
@@ -776,6 +933,11 @@ const qaSteps: TrackStep[] = [
           'The amendment in your words, after a bare double dash. Use this rather than re-running Case Forge — re-forging renumbers ids and orphans the records bound to them.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        'Nothing to update — the cases were new. This is for the second time a requirement changes, not the first time it is written.',
+    },
     example:
       '/yw:update-cases bin-pareto-export -- "Q-01 answered: file name is wafer-bintype-date"',
     agents: 'test-case-designer',
@@ -784,7 +946,7 @@ const qaSteps: TrackStep[] = [
     command: '/yw:gate-design <feature-slug> [--category CAT-NN] [approved]',
     title: 'Assemble the Design Gate digest',
     purpose:
-      'Counts, coverage, lint results, and every gap — with no verdict and no recommendation. A named human states the decision; it is recorded with a timestamp and unlocks the next stages.',
+      'Collects the evidence about the test cases into one page and shows it to a named person, who says yes or no. It works out no verdict of its own — the decision and the timestamp are recorded, and that is the whole gate.',
     args: [
       SLUG,
       {
@@ -800,13 +962,18 @@ const qaSteps: TrackStep[] = [
           'Records your approval of the digest in front of you. "continue" and "go ahead" are not approvals — the skill will ask which you mean.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        "The evidence was assembled but no approval exists, because approving is a person's job and Claude may never write that row. This is the real state of the example: the cases are ready and waiting for a human to read them and say so.",
+    },
     example: '/yw:gate-design bin-pareto-export',
   },
   {
     command: '/yw:sync-cases <feature-slug> [--live] [--category CAT-NN]',
     title: 'Push cases to the tracker',
     purpose:
-      'Dry-run by default. Live requires a recorded human Design Gate approval for that exact scope. API, contract, and performance cases stay repository-only.',
+      'Copies approved cases into your test-management system. It always shows you the plan first, and will not write anything for real without both an explicit instruction and a recorded human approval.',
     args: [
       SLUG,
       {
@@ -821,6 +988,11 @@ const qaSteps: TrackStep[] = [
         detail: 'Sync one approved category. The approval check narrows to that category row.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        "Not run, for two independent reasons — either alone would have stopped it. The Design Gate has no approval, and this lab's only configured project is the live YWPD product project, so a practice run would have created real records in it.",
+    },
     example: '/yw:sync-cases bin-pareto-export',
   },
   {
@@ -828,7 +1000,7 @@ const qaSteps: TrackStep[] = [
       '/yw:ui-recon <feature-slug> [env] [--with-api-recon] [--spec <path-or-url>] [--with-case-execution] [--tc <id,id,...>] [--role <role>] [--continue-on-failure]',
     title: 'Recon the running interface',
     purpose:
-      'Walk the approved scope in the live application, harvest stable locators, and flag observability gaps. Can drive API recon and case execution in the same browser session.',
+      'Walks the real screen before anyone writes automation, and records how each thing on it can be found reliably. It reports anything that cannot be, so the app gets fixed instead of the test getting clever.',
     args: [
       SLUG,
       {
@@ -871,6 +1043,13 @@ const qaSteps: TrackStep[] = [
           'Keep going past a failing case to gather the rest. Stop instead if the failure corrupts shared state.',
       },
     ],
+    outcome: {
+      ran: true,
+      detail:
+        'Walked the bin pareto screen and found one problem: the results table had no stable handle, so a test could only reach it by describing its styling. That was sent to the dev track and fixed in the app.',
+      sample:
+        'gap  the results table has no stable handle\n     a test could only reach it via CSS, which breaks on restyle\n     -> fixed in the app as data-testid="bin-pareto-rows"',
+    },
     example:
       '/yw:ui-recon bin-pareto-export local --with-api-recon --spec http://127.0.0.1:5000/openapi.json',
     agents: 'ui-recon-agent',
@@ -879,7 +1058,7 @@ const qaSteps: TrackStep[] = [
     command: '/yw:api-recon <feature-slug> [env] [--spec <path-or-url>] [--capture-ui]',
     title: 'Reconcile the API surface',
     purpose:
-      'Build the operation inventory from the served document and live evidence, and record contract drift before tests are written against a stale shape.',
+      'Looks at what the server actually offers — the addresses, the inputs, the responses — and writes it down, so tests are built against reality rather than a document that has drifted.',
     args: [
       SLUG,
       {
@@ -901,13 +1080,20 @@ const qaSteps: TrackStep[] = [
           'Drive the interface to provoke the calls, when an operation is hard to exercise directly.',
       },
     ],
+    outcome: {
+      ran: true,
+      detail:
+        "Confirmed the new download address appears in the app's published API document alongside the report it mirrors, and that it answers correctly when a wafer is missing, the options are wrong, or nobody is signed in.",
+      sample:
+        '/api/reports/wafers/{waferSequence}/bin-pareto\n/api/reports/wafers/{waferSequence}/bin-pareto.csv\n\nunknown wafer 404   bad option 400   no sign-in 401',
+    },
     example: '/yw:api-recon bin-pareto-export local --spec http://127.0.0.1:5000/openapi.json',
   },
   {
     command: '/yw:desktop-recon <feature-slug> [--build <id>] [--category CAT-NN]',
     title: 'Recon the desktop application',
     purpose:
-      'Survey the WinForms screens, harvest Name Mapping candidates, and report every control with no developer-set Name — the desktop testability gap list, routed back to the dev track.',
+      'The same reconnaissance as the web version, for the Windows desktop application, and reports the controls the developers still need to name.',
     args: [
       SLUG,
       {
@@ -922,6 +1108,11 @@ const qaSteps: TrackStep[] = [
         detail: "Walk one category's screens rather than the whole feature.",
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        'Not applicable — this feature is a web screen, and this machine has no Windows desktop build to walk.',
+    },
     example: '/yw:desktop-recon bin-pareto --build 2026.8.1',
     agents: 'desktop-recon-agent',
   },
@@ -930,7 +1121,7 @@ const qaSteps: TrackStep[] = [
       '/yw:execute-cases <feature-slug> [env] [--tc <id,id,...>] [--role <role>] [--continue-on-failure]',
     title: 'Execute and preserve evidence',
     purpose:
-      'Run approved cases through one browser batch with isolated state, exact per-step verdicts, and a standardized failure packet.',
+      'Runs approved cases by hand and records what happened, step by step. Used before automation exists, or for the cases that will always need a person.',
     args: [
       SLUG,
       {
@@ -958,22 +1149,37 @@ const qaSteps: TrackStep[] = [
           'Keep executing after a failure. Never use it after failed cleanup — the next case then starts from corrupted state and its verdict means nothing.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        'Skipped because all four cases were automatable and were automated the same day. On a feature with cases a machine cannot judge — anything about how something looks or feels — this is where those get run.',
+    },
     example: '/yw:execute-cases bin-pareto-export local --continue-on-failure',
   },
   {
     command: '/yw:log-exploratory <feature-slug>',
     title: 'Record exploratory work',
     purpose:
-      'Consolidate charters and manual runs of the approved scope — or a recorded decision not to execute them. Manual evidence is gate evidence.',
+      'Records what you found while poking around without a script. Unplanned exploration finds things planned cases never will, and this keeps that from being lost.',
     args: [SLUG],
+    outcome: {
+      ran: false,
+      detail:
+        "Not run. The exploration that did happen went into recon and the design instead, so nothing was lost here — but on a bigger feature this is where a tester's hunch gets written down.",
+    },
     example: '/yw:log-exploratory bin-pareto-export',
   },
   {
     command: '/yw:forge-oracle <feature-slug>',
     title: 'Build the independent oracle',
     purpose:
-      'Derive expected values from the approved rules and deterministic data, so a calculated result is never checked against the system that produced it.',
+      'Works out the right answer independently of the code, so a test can tell correct from merely consistent. Without one, a test only proves the code agrees with itself.',
     args: [SLUG],
+    outcome: {
+      ran: false,
+      detail:
+        'Not needed as its own step: the screen is already an independent answer. Every test compares the saved file against the table on the page, which is calculated by a different path from the file.',
+    },
     example: '/yw:forge-oracle bin-pareto-export',
   },
   {
@@ -981,7 +1187,7 @@ const qaSteps: TrackStep[] = [
       '/yw:forge-scripts <feature-slug> [--scenario-type positive|functional|negative|edge|all] [--category CAT-NN] [--ac AC-NN] [--tc TC-id]',
     title: 'Automate the web cases',
     purpose:
-      'Implement the approved automation set without re-authoring the Gherkin. Adds the automated tag when runnable; the permanent manual tag stays. Refuses without a recorded Design Gate approval.',
+      'Turns approved cases into automation that actually runs. It only automates cases a human has already approved, so the automation can never quietly become the definition of what is correct.',
     args: [
       SLUG,
       {
@@ -1008,6 +1214,14 @@ const qaSteps: TrackStep[] = [
           'Automate one named case. Useful for finishing a straggler without reopening the whole category.',
       },
     ],
+    outcome: {
+      ran: true,
+      detail:
+        'Automated all four scenarios. The screen is what each test compares against — it reads the table the engineer is looking at, then downloads the file and checks the two agree. Building the expected file with the same code the app uses would produce a test that cannot fail.',
+      sample:
+        '// read the screen BEFORE downloading, then compare\nexpect(fileBins).toEqual(screenBins);\nexpect(Number(row[2])).toBe(Number(shown?.dieCount));',
+      path: 'steps/bin-pareto-export.steps.ts',
+    },
     example: '/yw:forge-scripts bin-pareto-export --scenario-type functional',
     agents: 'e2e-scripter · plotly-specialist when charts are in scope',
   },
@@ -1015,7 +1229,7 @@ const qaSteps: TrackStep[] = [
     command: '/yw:forge-desktop-scripts <feature-slug> [--category CAT-NN] [--tc TC-id]',
     title: 'Automate the desktop cases',
     purpose:
-      "Import the same feature files into TestComplete's Scenarios item and bind Python step definitions through Name Mapping aliases. One case of record, two runners.",
+      'Automates the desktop application from the same approved cases, so one written case can drive both the web and the desktop.',
     args: [
       SLUG,
       {
@@ -1030,6 +1244,11 @@ const qaSteps: TrackStep[] = [
           'Automate one named desktop case. Selection is always on the desktop surface tag, never on a test level.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        'Not applicable — no desktop application is involved, and the tool it drives needs a Windows machine with a logged-in session.',
+    },
     example: '/yw:forge-desktop-scripts bin-pareto --category CAT-02',
     agents: 'testcomplete-scripter',
   },
@@ -1038,7 +1257,7 @@ const qaSteps: TrackStep[] = [
       '/yw:forge-api-tests <feature-slug> [--stack <profile-name>] [--tc TC-id] [--operation operation-id] [--layer contract|integration|ui-interception|fuzz|all]',
     title: 'Automate the API cases',
     purpose:
-      'Typed clients, runtime schemas, and contract or integration tests. The fuzz layer generates cases from the OpenAPI schema to find what example-based tests miss.',
+      'Tests the server directly, without a browser. Faster and steadier than driving the screen, and it catches things the screen hides.',
     args: [
       SLUG,
       {
@@ -1064,6 +1283,11 @@ const qaSteps: TrackStep[] = [
           'Contract checks status, headers and schema; integration checks business state; ui-interception checks request-driven interface behaviour; fuzz generates cases from the schema.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        'Not run as a step. The server behaviour was checked directly during the build — the file matches the report row for row, and missing wafers, bad options and missing sign-ins all answer correctly — but that was a one-off check, not a test that will run again tomorrow.',
+    },
     example: '/yw:forge-api-tests bin-pareto-export --layer contract',
   },
   {
@@ -1071,7 +1295,7 @@ const qaSteps: TrackStep[] = [
       '/yw:forge-performance-tests <feature-slug> [--stack <profile-name>] [--profile smoke|load|spike|stress|endurance] [--operation operation-id]',
     title: 'Automate the workload',
     purpose:
-      "Guarded k6 workloads with thresholds sourced from the requirement's stated objectives — never an inferred number — and an explicit target authorization.",
+      'Measures whether it is fast enough under load, against a target the requirement actually states rather than a number someone picked.',
     args: [
       SLUG,
       {
@@ -1093,6 +1317,11 @@ const qaSteps: TrackStep[] = [
           'Which API operation the workload drives. Without it the skill covers every operation the requirement sets an objective for.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        'No performance target to test against: the PRD sets none, and its one open question about size limits was answered "no limit for now". Inventing a number here would test an opinion rather than a requirement.',
+    },
     example: '/yw:forge-performance-tests bin-pareto-export --profile smoke',
   },
   {
@@ -1100,7 +1329,7 @@ const qaSteps: TrackStep[] = [
       '/yw:scan-security <scope> [--verbs deps-scan,sast,baseline-scan,api-scan,fuzz] [--target <url> --authorize] [--env <name>]',
     title: 'Run and triage the scanners',
     purpose:
-      'Dependencies and static analysis read the repository and need no authorization. Active scans send attack traffic and refuse without an explicit named target.',
+      'Runs security scanners across the code and the running app, sorts real findings from noise, and turns confirmed ones into bugs.',
     args: [
       {
         token: '<scope>',
@@ -1127,6 +1356,11 @@ const qaSteps: TrackStep[] = [
           'Which environment. A shared environment is refused outright; production needs an approved window stated in the request.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        'Cannot run here — none of the scanners it drives are installed on this machine, and installing them is your decision rather than one to make silently.',
+    },
     example: '/yw:scan-security bin-pareto-export --verbs deps-scan,sast',
     agents: 'security-analyst',
   },
@@ -1135,7 +1369,7 @@ const qaSteps: TrackStep[] = [
       '/yw:audit-scripts <feature-slug> [branch] [--scenario-type positive|functional|negative|edge|all] [--category CAT-NN] [--ac AC-NN] [--tc TC-id]',
     title: 'Review the automation (advisory)',
     purpose:
-      'An independent read for self-passing tests, missing independent truth, brittle locators, and unsafe retries. Holds no ledger row and blocks nothing — run it because it is useful.',
+      'Checks the automation itself, looking for tests that pass no matter what. A test that cannot fail is worse than no test, because it reports safety that was never checked.',
     args: [
       SLUG,
       {
@@ -1165,6 +1399,13 @@ const qaSteps: TrackStep[] = [
           'Narrow to one named case. Any of these four selectors scopes the review, and a scoped review states exactly which cases it covered so nobody reads it as feature-wide.',
       },
     ],
+    outcome: {
+      ran: true,
+      detail:
+        'Proved the four scenarios can fail, by deliberately breaking the feature three ways and confirming the right scenario failed each time. Without this, four green ticks prove only that four tests ran.',
+      sample:
+        'reversed the row order      -> 2 failed  (AC-01 order check)\ndropped an option line      -> 1 failed  (AC-04)\ndropped a column from rows  -> 1 failed  (AC-02)\nrestored                    -> 4 passed',
+    },
     example: '/yw:audit-scripts bin-pareto-export',
     agents: 'script-auditor',
   },
@@ -1173,7 +1414,7 @@ const qaSteps: TrackStep[] = [
       '/yw:green-run <feature-slug> [branch] [--scenario-type positive|functional|negative|edge|all] [--category CAT-NN] [--ac AC-NN] [--tc TC-id]',
     title: 'Prove repeatability',
     purpose:
-      'Three consecutive fully green runs, every run recorded and every failure diagnosed. Any fix restarts the streak, because the streak proves the determinism of exactly what ran.',
+      'Runs the suite and records the result as evidence. A feature is only counted as stable once it passes three times in a row, because a single green run can be luck.',
     args: [
       SLUG,
       {
@@ -1204,6 +1445,13 @@ const qaSteps: TrackStep[] = [
           'Narrow to one named case. Any of these four selectors runs a subset — useful iteration evidence, labelled as such. A subset never stands in for the feature, and only full runs count towards a stability streak.',
       },
     ],
+    outcome: {
+      ran: true,
+      detail:
+        'One green run recorded: 4 scenarios for this feature, and 11 across the whole suite with 31 app tests alongside. That is one of the three consecutive runs a stability streak needs, so this feature is not stable yet — and the ledger says so rather than rounding up.',
+      sample:
+        '4 passed (4.1s)      this feature\n11 passed (8.8s)     whole browser suite\n31 pass, 0 fail      app tests\n\nstreak: 1 of 3',
+    },
     example: '/yw:green-run bin-pareto-export',
     agents: 'flake-hunter on a failure',
   },
@@ -1211,24 +1459,33 @@ const qaSteps: TrackStep[] = [
     command: '/yw:gate-merge <feature-slug>',
     title: 'Assemble the Merge Gate digest',
     purpose:
-      'Run history, lint, lifecycle integrity, coverage rungs, observability gaps, and every gap listed plainly. The approval is a QA decision — it never merges the branch.',
+      'The same kind of human decision as the design gate, taken before the work merges. It gathers what happened — coverage, runs, reviews — and a person decides.',
     args: [SLUG],
+    outcome: {
+      ran: false,
+      detail:
+        'Not reached. It needs the three-run stability streak, and only one run has been recorded so far.',
+    },
     example: '/yw:gate-merge bin-pareto-export',
   },
   {
     command: '/yw:testops-promote <feature-slug>',
     title: 'Promote into CI',
     purpose:
-      'Wire the slices, reporting, fail-on-flake behavior, and durable evidence. Desktop suites additionally need an interactive-session runner.',
+      'Moves proven automation into the scheduled runs, so it keeps checking the product after everyone has moved on.',
     args: [SLUG],
+    outcome: {
+      ran: false,
+      detail:
+        'Not reached — promotion follows the merge gate, and that is waiting on the stability streak.',
+    },
     example: '/yw:testops-promote bin-pareto-export',
     agents: 'testops-engineer',
   },
   {
     command: '/yw:gate-ops <feature-slug> [N-runs]',
     title: 'Assemble the Ops Gate digest',
-    purpose:
-      'Real CI history, flake rate against actual executions, report trends, external sync, and the manual-only inventory. A recorded approval marks the automation Done.',
+    purpose: 'The last human decision: is this good enough to keep running unattended.',
     args: [
       SLUG,
       {
@@ -1238,6 +1495,11 @@ const qaSteps: TrackStep[] = [
           'How many consecutive pipeline runs form the evidence window. Defaults to 5 — raise it for a suite you have reason to distrust.',
       },
     ],
+    outcome: {
+      ran: false,
+      detail:
+        'Not reached. It is the last of the three human decisions, and the first one has not been taken yet — which is what the example is really showing: the machine can carry work a long way, and then it waits.',
+    },
     example: '/yw:gate-ops bin-pareto-export 5',
   },
   ...crossSteps,
@@ -1643,6 +1905,7 @@ function TrackGuide({
             ? 'QA artifacts are optional enrichment for Dev skills, never a precondition. Dev skills do not edit QA-owned artifacts.'
             : 'QA observes the build but does not edit application code. Human reviewers own gate approvals and scoped bypass decisions.'}
         </Alert>
+        <WorkedExampleNote />
         {isDev ? <StackGuide /> : null}
         <Alert>
           <strong>Practice target — Wafer triage:</strong>{' '}
@@ -1686,6 +1949,7 @@ function TrackGuide({
                   </dl>
                   <p className="guide-arg-label">Example</p>
                   <CommandBlock command={step.example} compact />
+                  {step.outcome ? <StepOutcomeBlock outcome={step.outcome} /> : null}
                   {step.agents ? (
                     <p className="guide-agent">
                       <strong>Delegates to:</strong> {step.agents}
@@ -1736,6 +2000,40 @@ function Checklist({
         );
       })}
     </section>
+  );
+}
+
+/**
+ * What the skill produced on the worked example. Kept visually quieter than the
+ * signature above it: it is evidence that the step is real, not the reference a
+ * reader came for.
+ */
+/**
+ * Explains the example blocks once, at the top of each track, so a reader knows
+ * what they are looking at before they meet the first one.
+ */
+function WorkedExampleNote(): ReactElement {
+  return (
+    <Alert tone="good">
+      <strong>Every skill below shows what it actually did.</strong> Both tracks were run end to end
+      on one small feature of this app — a <em>Download CSV</em> button on the Bin pareto screen —
+      and each skill carries the real thing it produced, from the written requirement through to
+      four passing automated tests. Where a skill had nothing to do for a feature this size, or
+      cannot run on a laptop, it says so and says why. Nothing below is made up to fill a gap.
+    </Alert>
+  );
+}
+
+function StepOutcomeBlock({ outcome }: { outcome: StepOutcome }): ReactElement {
+  return (
+    <div className={outcome.ran ? 'guide-outcome' : 'guide-outcome is-skipped'}>
+      <p className="guide-outcome-label">
+        {outcome.ran ? 'What it produced here' : 'Not exercised by this example'}
+      </p>
+      <p className="guide-outcome-detail">{outcome.detail}</p>
+      {outcome.sample ? <pre className="guide-outcome-sample">{outcome.sample}</pre> : null}
+      {outcome.path ? <p className="guide-outcome-path">{outcome.path}</p> : null}
+    </div>
   );
 }
 
