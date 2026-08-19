@@ -168,7 +168,7 @@ const sharedStart: TrackStep[] = [
       detail:
         'Produced a PRD with two user stories, four open questions it refused to answer on its own, and a Terms table. Every story carries an "In plain words" line for readers with no wafer-test background.',
       sample:
-        'US-01 — Download the report I am looking at\nIn plain words: A pareto ranks the failure categories on a\nwafer from worst to least. Today those numbers live only on\nthe screen. This gives a button that saves them as a file.',
+        '### US-01 — Download the report I am looking at\n\n**As a** yield engineer, **I want** to download the bin pareto I have just run,\n**so that** I can put its numbers into a document without retyping them.\n\n**In plain words:** A pareto ranks the failure categories on a wafer from worst\nto least, so an engineer can see where most of the loss comes from. Today those\nnumbers live only on the screen. This gives a button that saves them as a file a\nspreadsheet can open.\n\n**Done means:**',
       path: 'docs/PRDs/bin-pareto-export/prd-draft.md',
     },
     example: '/yw:forge-prd bin-pareto-export "engineers retype pareto numbers by hand"',
@@ -219,7 +219,7 @@ const sharedStart: TrackStep[] = [
       detail:
         'Produced four acceptance criteria (AC-01 to AC-04) and two testable categories, each with a plain-words explanation and a note on where to check it. These ids are used by every later step on both tracks.',
       sample:
-        'AC-01  Download the shown report as a file       e2e\nAC-02  Every row carries the five reported values  unit, e2e\nAC-03  No download is offered before a report runs  component\nAC-04  The file records the options that produced it unit, e2e',
+        '### AC-01 — Download the shown report as a file\n\n**Summary:** Verify that the engineer can download the bin pareto they have run.\n**In plain words:** A pareto ranks the failure categories on a wafer from worst to\nleast. This lets the engineer save exactly what the screen is showing as a file a\nspreadsheet can open, instead of copying the numbers by hand.\n**Format:** Workflow\n\n```gherkin\nGiven The user has run a report on the "Bin pareto" screen\nWhen The user clicks the "Download CSV" button\nThen A comma-separated file is saved\nAnd The file holds one row for each bin shown on the screen\nAnd The rows are in the same order as the screen\n```',
       path: '.probe/artifacts/bin-pareto-export/10-spec/spec-analysis.md',
     },
     example: '/yw:probe-spec bin-pareto-export docs/PRDs/bin-pareto-export/prd-signed-off.md',
@@ -382,8 +382,7 @@ const devSteps: TrackStep[] = [
       detail:
         "Mapped the change across four layers and wrote one decision record. It also refused to finish cleanly — it returned NEEDS_INFO because the PRD's four open questions were still unanswered, and named which ones blocked what.",
       sample:
-        "route   add GET .../bin-pareto.csv, same options as the report\ndomain  reuse deriveBinPareto() unchanged; add a formatter\nauth    reuse requireRole('viewer') — both return the same numbers\nstatus  NEEDS_INFO — Q-01 controls the file name",
-      path: '.probe/artifacts/bin-pareto-export/60-design/tech-design.md',
+        '| Layer | Change | Grounding |\n| ----- | ------ | --------- |\n| `service/` route | Add `GET /api/reports/wafers/\n:waferSequence/bin-pareto.csv`, same query parameters as the\nexisting report route | verified-in-code: `routes/reports.ts:100` |\n| `service/` domain | Reuse `deriveBinPareto()` unchanged; add a\nformatter | verified-in-code: `bin-pareto.ts:21` |\n\n## Closing state\n\n`NEEDS_INFO` — four open questions (Q-01..Q-04) control expected\nvalues, so `/build-feature` may start but cannot finish.',
     },
     example: '/yw:forge-tech-design bin-pareto-export --stack node-ts-spa',
     agents: 'tech-designer',
@@ -471,7 +470,7 @@ const devSteps: TrackStep[] = [
       detail:
         "Changed five files. The report's option rules moved into one shared place so the screen and the file cannot drift apart, and the download reuses the report's existing permission check rather than inventing a second one.",
       sample:
-        'api/src/bin-pareto-csv.ts      new — turns a report into CSV text\napi/src/routes/reports.ts      new download address, shared options\napi/src/routes/schemas.ts      option rules moved here, now shared\nweb/src/api.ts                 fetches with the sign-in token\nweb/src/BinParetoPage.tsx      the Download CSV button',
+        "export function binParetoToCsv(report: BinParetoResponse, options: BinParetoOptions): string {\n  const lines: string[] = [\n    csvRow(['Lot', report.header.lot]),\n    csvRow(['Wafer', report.header.waferNumber]),\n    csvRow(['Device', report.header.device]),\n    csvRow(['Test program', report.header.testProgram]),",
       path: 'probe-lab-app/api/src/bin-pareto-csv.ts',
     },
     example: '/yw:build-feature bin-pareto-export --stack node-ts-spa --layer backend',
@@ -535,8 +534,7 @@ const devSteps: TrackStep[] = [
       detail:
         'Ten tests on the file builder, covering AC-02 and AC-04. Two of them exist for failures that stay silent rather than crashing: a bin name containing a comma would shift every later column, and one containing a quote must be doubled.',
       sample:
-        '✔ AC-02 — every bin becomes one row carrying the five values\n✔ AC-04 — the file states the options it was run with\n✔ a bin name containing a comma stays in one column\n✔ a lot code with characters a file system rejects is made safe\n  10 pass, 0 fail',
-      path: 'probe-lab-app/tests/bin-pareto-csv.test.ts',
+        '✔ AC-02 — every bin becomes one row carrying the five reported values\n✔ AC-02 — rows keep the order the report produced, not a re-sorted one\n✔ AC-04 — the file states the options the report was run with\n✔ AC-04 — a custom bin selection names the bins it selected\n…\nℹ tests 10\nℹ pass 10\nℹ fail 0',
     },
     example: '/yw:forge-unit-tests bin-pareto-export --ac AC-02',
     agents: 'build-verifier',
@@ -680,8 +678,7 @@ const devSteps: TrackStep[] = [
       ran: true,
       detail:
         "Added two handles. The repository's own rules refused the test that tried to work around the missing one with a CSS selector, which is exactly the point: the gap got fixed in the app instead of worked around in the test.",
-      sample:
-        'data-testid="bin-pareto-download-csv"   the button\ndata-testid="bin-pareto-rows"          the table body\n\nBefore: eslint — Raw CSS locators are forbidden in steps',
+      sample: 'data-testid="bin-pareto-download-csv"\n    <tbody data-testid="bin-pareto-rows">',
       path: 'probe-lab-app/web/src/BinParetoPage.tsx',
     },
     example: '/yw:seed-testability bin-pareto --surface all --rank high',
@@ -758,7 +755,7 @@ const devSteps: TrackStep[] = [
       detail:
         "One commit carrying both tracks' work, with a message recording what was verified and — just as important — what was deliberately left for a human: the PRD's open questions and the unapproved Design Gate.",
       sample:
-        'feat(bin-pareto): export the report as CSV, built through\n                  both PROBE tracks\n\n 11 files changed, 4 scenarios, 10 unit tests',
+        'feat(bin-pareto): export the report as CSV, built through\n                  both PROBE tracks\n\n probe-lab-app/api/src/bin-pareto-csv.ts      |  94 +++++\n probe-lab-app/api/src/routes/reports.ts      |  93 ++++--\n probe-lab-app/tests/bin-pareto-csv.test.ts   | 169 +++++++\n steps/bin-pareto-export.steps.ts             | 223 ++++++++\n features/.../downloading-the-report.feature  |  25 ++\n 12 files changed',
     },
     example: '/yw:ship-change bin-pareto-export both',
     agents: 'code-reviewer',
@@ -886,7 +883,7 @@ const qaSteps: TrackStep[] = [
       detail:
         'Two case files, four scenarios, covering both categories from the spec. Each scenario is tagged with the criterion it proves, so coverage can be traced back to the requirement rather than counted.',
       sample:
-        'Scenario: No download is offered before a report has been run\n  When the QA user opens the bin pareto screen\n  Then the "Download CSV" button is not offered\n\n  tags: @ac:AC-03 @cat:CAT-01 @manual',
+        '@manual @automated @regression @feature:bin-pareto-export @cat:CAT-01\n  Background:\n    Given the QA user is signed in\n    And a wafer with several failing bins is loaded\n\n  @smoke @testtype:e2e @ac:AC-03\n  Scenario: No download is offered before a report has been run\n    When the QA user opens the bin pareto screen\n    Then the "Download CSV" button is not offered',
       path: 'features/bin-pareto-export/downloading-the-report.feature',
     },
     example: '/yw:forge-cases bin-pareto-export --scenario-type all',
@@ -1046,9 +1043,7 @@ const qaSteps: TrackStep[] = [
     outcome: {
       ran: true,
       detail:
-        'Walked the bin pareto screen and found one problem: the results table had no stable handle, so a test could only reach it by describing its styling. That was sent to the dev track and fixed in the app.',
-      sample:
-        'gap  the results table has no stable handle\n     a test could only reach it via CSS, which breaks on restyle\n     -> fixed in the app as data-testid="bin-pareto-rows"',
+        'Walked the bin pareto screen and found one problem: the results table had no stable handle, so a test could only reach it by describing its styling. It went to the dev track and was fixed in the app as a test handle, rather than worked around in the test.',
     },
     example:
       '/yw:ui-recon bin-pareto-export local --with-api-recon --spec http://127.0.0.1:5000/openapi.json',
@@ -1219,7 +1214,7 @@ const qaSteps: TrackStep[] = [
       detail:
         'Automated all four scenarios. The screen is what each test compares against — it reads the table the engineer is looking at, then downloads the file and checks the two agree. Building the expected file with the same code the app uses would produce a test that cannot fail.',
       sample:
-        '// read the screen BEFORE downloading, then compare\nexpect(fileBins).toEqual(screenBins);\nexpect(Number(row[2])).toBe(Number(shown?.dieCount));',
+        "Then('the rows are in the same order as the screen', ({ scenarioState }) => {\n  const fileBins = savedFile(scenarioState).rows.map((row) => row[0]);\n  const screenBins = shownRows(scenarioState).map((row) => row.binNumber);\n  expect(fileBins).toEqual(screenBins);\n});",
       path: 'steps/bin-pareto-export.steps.ts',
     },
     example: '/yw:forge-scripts bin-pareto-export --scenario-type functional',
@@ -1402,9 +1397,7 @@ const qaSteps: TrackStep[] = [
     outcome: {
       ran: true,
       detail:
-        'Proved the four scenarios can fail, by deliberately breaking the feature three ways and confirming the right scenario failed each time. Without this, four green ticks prove only that four tests ran.',
-      sample:
-        'reversed the row order      -> 2 failed  (AC-01 order check)\ndropped an option line      -> 1 failed  (AC-04)\ndropped a column from rows  -> 1 failed  (AC-02)\nrestored                    -> 4 passed',
+        'Proved the four scenarios can fail. Reversing the row order failed the two that check order; removing an option line failed the one that checks options; dropping a column failed the one that checks each row. Restoring the code turned all four green again. Without that, four green ticks prove only that four tests ran.',
     },
     example: '/yw:audit-scripts bin-pareto-export',
     agents: 'script-auditor',
