@@ -12,6 +12,10 @@ A lightweight, fully offline repo bundling **a small wafer-analysis app**, **the
   3. **Bin pareto report** — bin % + cumulative %.
   4. **Wafer triage** — combine fixed pattern matching, spatial loss, clusters, and failed-bin priorities.
 
+  The header also carries an **Assessments** page — a self-paced ladder of 15 assessments
+  per track with effort levels, points, fab-themed levels, and PR-based submission
+  (see [`probe-lab-app/README.md`](probe-lab-app/README.md#assessments)).
+
   Run it: `cd probe-lab-app && npm start` (seeds the DB → API :5000 + web :3000). See [`probe-lab-app/README.md`](probe-lab-app/README.md).
 
 - **BDD framework** (`src/`, `steps/`, `features/`, `playwright.config.ts`) — Playwright + `playwright-bdd`. A starter suite ([`features/probe-lab/workflow.feature`](features/probe-lab/workflow.feature)) drives the four workflows through the UI. `npm test` regenerates the specs (`bddgen`) and runs them, auto-starting the app via `webServer`.

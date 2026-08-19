@@ -8,6 +8,17 @@ Feature: yieldWerx PROBE Lab end-to-end workflows
     Given the QA user is signed in
 
   @regression
+  Scenario: Assessments reward a recorded pass and take back a recorded fail
+    When the QA user opens the assessments page
+    Then each track lists fifteen assessments ordered from starter to expert
+    When the QA user clears any recorded result on the first QA assessment
+    And the QA user records a pass on the first QA assessment with a pull request link
+    Then the score goes up by ten points and the pass shows its pull request
+    When the QA user records a fail on the first QA assessment
+    Then the score goes back down
+    When the QA user clears any recorded result on the first QA assessment
+
+  @regression
   Scenario: Loaded sample wafers can be removed straight from the popup
     When the admin loads every sample wafer
     And the admin reopens the sample wafers popup

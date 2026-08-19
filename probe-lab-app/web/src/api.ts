@@ -1,3 +1,4 @@
+import type { AssessmentsResponse } from '../../shared/assessments.js';
 import type {
   LoginResponse,
   ReadinessResponse,
@@ -128,6 +129,35 @@ export class WaferIntelligenceApi {
 
   public listWafers(query: WaferQuery): Promise<WaferPage> {
     return this.request(`/api/wafers${this.querySuffix(query)}`);
+  }
+
+  public getAssessments(): Promise<AssessmentsResponse> {
+    return this.request('/api/assessments');
+  }
+
+  /**
+   * Record your own result. `evidenceUrl` is the pull request the work was
+   * submitted through — optional, because some assessments produce artifacts
+   * or a session log rather than a diff.
+   */
+  public recordAssessment(
+    assessmentId: string,
+    outcome: 'passed' | 'failed',
+    evidenceUrl?: string,
+  ): Promise<AssessmentsResponse> {
+    const body: { outcome: string; evidenceUrl?: string } = { outcome };
+    if (evidenceUrl && evidenceUrl.trim().length > 0) body.evidenceUrl = evidenceUrl.trim();
+    return this.jsonRequest(
+      `/api/assessments/${encodeURIComponent(assessmentId)}/result`,
+      'POST',
+      body,
+    );
+  }
+
+  public clearAssessment(assessmentId: string): Promise<AssessmentsResponse> {
+    return this.fetchJson(`/api/assessments/${encodeURIComponent(assessmentId)}/result`, {
+      method: 'DELETE',
+    });
   }
 
   public getSampleData(): Promise<SampleDataStatus> {

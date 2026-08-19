@@ -35,6 +35,7 @@ import { ClusterDetectionPage } from './ClusterDetectionPage.js';
 import { BinParetoPage } from './BinParetoPage.js';
 import { SampleDataDialog } from './SampleDataDialog.js';
 import { ProbeGuidePage } from './ProbeGuidePage.js';
+import { AssessmentsPage } from './AssessmentsPage.js';
 import { WaferTriagePage } from './WaferTriagePage.js';
 
 const NAV_STATE_KEY = 'yw.nav-collapsed';
@@ -119,6 +120,11 @@ const pageTitles: Array<{
     subtitle: 'Set up the lab, install the plugins, and follow your practice track',
   },
   {
+    match: (path) => path.startsWith('/assessments'),
+    title: 'Assessments',
+    subtitle: 'Fifteen self-paced assessments per track, with points and levels',
+  },
+  {
     match: (path) => path.startsWith('/reports'),
     title: 'Bin pareto',
     subtitle: 'Largest bin losses with a running total',
@@ -183,6 +189,7 @@ export function App(): ReactElement {
           <Route path="/detection" element={<ClusterDetectionPage />} />
           <Route path="/reports/bin-pareto" element={<BinParetoPage />} />
           <Route path="/guide" element={<ProbeGuidePage />} />
+          <Route path="/assessments" element={<AssessmentsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>
@@ -365,6 +372,13 @@ function Layout(): ReactElement {
             <Link className="btn btn-ghost btn-sm" to="/guide" aria-label="PROBE guide">
               <Icon name="help" size={14} />
               <span className="topbar-action-label">PROBE guide</span>
+            </Link>
+            <span className="topbar-divider" aria-hidden="true">
+              |
+            </span>
+            <Link className="btn btn-ghost btn-sm" to="/assessments" aria-label="Assessments">
+              <Icon name="target" size={14} />
+              <span className="topbar-action-label">Assessments</span>
             </Link>
             <span className="topbar-divider" aria-hidden="true">
               |

@@ -448,3 +448,80 @@ Then('removing them leaves no sample wafers loaded', async ({ page }) => {
   await page.getByRole('button', { name: /^Remove/ }).click();
   await expect(samplePopup(page).getByText('0 of 4 loaded')).toBeVisible({ timeout: 15_000 });
 });
+
+/*
+ * Assessments: the self-paced ladder with self-recorded results. The scenario
+ * is deliberately state-proof — it clears the result it uses before and after,
+ * so a database that already carries results does not change the arithmetic.
+ */
+
+When('the QA user opens the assessments page', async ({ page }) => {
+  await page.getByRole('banner').getByRole('link', { name: 'Assessments' }).click();
+  await page.waitForURL('**/assessments**');
+  await expect(page.getByRole('heading', { name: 'Dev track', exact: true })).toBeVisible();
+});
+
+Then('each track lists fifteen assessments ordered from starter to expert', async ({ page }) => {
+  await expect(page.getByTestId('assessment-dev-01')).toBeVisible();
+  await expect(page.locator('.assessment')).toHaveCount(15);
+  await page.getByRole('button', { name: 'QA track' }).click();
+  await expect(page.getByTestId('assessment-qa-01')).toBeVisible();
+  await expect(page.locator('.assessment')).toHaveCount(15);
+  /* The ladder's direction: first card Starter, last card Expert. */
+  await expect(page.locator('.assessment').first()).toContainText('Starter');
+  await expect(page.locator('.assessment').last()).toContainText('Expert');
+});
+
+When('the QA user clears any recorded result on the first QA assessment', async ({ page }) => {
+  const card = page.getByTestId('assessment-qa-01');
+  const clear = card.getByRole('button', { name: 'Clear' });
+  if ((await clear.count()) > 0) {
+    await clear.click();
+    await expect(clear).toHaveCount(0);
+  }
+});
+
+When(
+  'the QA user records a pass on the first QA assessment with a pull request link',
+  async ({ page, scenarioState }) => {
+    scenarioState.set(
+      'assessments:score-before',
+      Number(await page.getByTestId('assessment-score').textContent()),
+    );
+    const card = page.getByTestId('assessment-qa-01');
+    await card
+      .getByRole('textbox')
+      .fill('https://github.com/tafseer-yw/yieldWerx-probe-lab/pull/1');
+    await card.getByRole('button', { name: 'Record pass' }).click();
+    await expect(card.getByText('Passed')).toBeVisible();
+  },
+);
+
+Then(
+  'the score goes up by ten points and the pass shows its pull request',
+  async ({ page, scenarioState }) => {
+    const before = scenarioState.get('assessments:score-before') as number;
+    /* qa-01 is a starter, worth exactly 10 — asserted as arithmetic, not "went up". */
+    await expect(page.getByTestId('assessment-score')).toHaveText(String(before + 10));
+    await expect(
+      page.getByTestId('assessment-qa-01').getByRole('link', { name: /github\.com.*pull\/1/ }),
+    ).toBeVisible();
+  },
+);
+
+When('the QA user records a fail on the first QA assessment', async ({ page, scenarioState }) => {
+  scenarioState.set(
+    'assessments:score-after-pass',
+    Number(await page.getByTestId('assessment-score').textContent()),
+  );
+  const card = page.getByTestId('assessment-qa-01');
+  await card.getByRole('button', { name: 'Record fail' }).click();
+  await expect(card.getByText(/Failing/)).toBeVisible();
+});
+
+Then('the score goes back down', async ({ page, scenarioState }) => {
+  const afterPass = scenarioState.get('assessments:score-after-pass') as number;
+  /* Passed +10 becomes failing −5: a swing of 15, floored at zero. */
+  const expected = Math.max(0, afterPass - 15);
+  await expect(page.getByTestId('assessment-score')).toHaveText(String(expected));
+});
