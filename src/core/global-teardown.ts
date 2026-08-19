@@ -10,6 +10,14 @@
  * database is touched directly, per the dependency rule in CLAUDE.md. It is
  * deliberately forgiving: a teardown must never turn a green run red, so every
  * failure is logged and swallowed.
+ *
+ * It reaches the API through `apiBaseUrl`, which is 127.0.0.1 rather than
+ * localhost on purpose. The API binds IPv4 loopback, `localhost` resolves to
+ * ::1 first on macOS, and macOS AirPlay Receiver listens on port 5000 — so
+ * `http://localhost:5000` reaches AirTunes, which answers 403 to everything.
+ * That is exactly what happened here: every run logged "sign-in failed (403)"
+ * and left its wafers behind, and they accumulated until the dashboard was
+ * reporting dozens of them.
  */
 import { loadConfig } from './config';
 import { createLogger } from './logger';
