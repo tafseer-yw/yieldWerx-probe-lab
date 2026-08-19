@@ -191,7 +191,7 @@ export async function registerAssessmentRoutes(
   app.get(
     '/api/assessments',
     {
-      preHandler: requireRole('viewer'),
+      onRequest: requireRole('viewer'),
       schema: {
         tags: ['Assessments'],
         summary: 'The assessment catalogue with your results, score, and team standings',
@@ -208,7 +208,7 @@ export async function registerAssessmentRoutes(
   }>(
     '/api/assessments/:assessmentId/result',
     {
-      preHandler: requireRole('viewer'),
+      onRequest: requireRole('viewer'),
       schema: {
         tags: ['Assessments'],
         summary:
@@ -263,7 +263,7 @@ export async function registerAssessmentRoutes(
   app.delete<{ Params: { assessmentId: string } }>(
     '/api/assessments/:assessmentId/result',
     {
-      preHandler: requireRole('viewer'),
+      onRequest: requireRole('viewer'),
       schema: {
         tags: ['Assessments'],
         summary: 'Clear your own recorded result on one assessment',

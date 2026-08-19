@@ -36,6 +36,11 @@ export default tseslint.config(
       'docs/**',
       '.husky/**',
       '.claude/**',
+      // k6 scripts run under the k6 runtime (its own __ENV/__VU globals and
+      // k6/* module resolver), not Node — linting them with the Node config
+      // only produces false no-undef/no-unresolved noise. They are validated
+      // instead by `npm run perf:validate` (k6 inspect).
+      'performance/**',
     ],
   },
   js.configs.recommended,
@@ -45,6 +50,7 @@ export default tseslint.config(
       'src/**/*.ts',
       'steps/**/*.ts',
       'scripts/**/*.ts',
+      'tests/**/*.ts',
       'playwright.config.ts',
       'probe-lab-app/{api,scripts,shared,tests,web}/**/*.{ts,tsx}',
     ],
@@ -64,6 +70,15 @@ export default tseslint.config(
               from: ['./steps', './features'],
               message:
                 'Dependency direction is downward: src/ must not import from steps/ or features/.',
+            },
+            {
+              // Page and component objects sit below steps and above core.
+              // They compose off core, never reach up into steps, and never
+              // import each other's layer in a way that inverts the direction.
+              target: ['./src/pages', './src/components'],
+              from: ['./steps', './features'],
+              message:
+                'Page/component objects must not import from steps/ or features/ — steps consume them, not the other way round.',
             },
           ],
         },

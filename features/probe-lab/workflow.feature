@@ -10,7 +10,7 @@ Feature: yieldWerx PROBE Lab end-to-end workflows
   @regression
   Scenario: Assessments reward a recorded pass and take back a recorded fail
     When the QA user opens the assessments page
-    Then each track lists fifteen assessments ordered from starter to expert
+    Then each track lists its assessments ordered from starter to expert
     When the QA user clears any recorded result on the first QA assessment
     And the QA user records a pass on the first QA assessment with a pull request link
     Then the score goes up by ten points and the pass shows its pull request

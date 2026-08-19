@@ -189,7 +189,7 @@ export function AssessmentsPage(): ReactElement {
             }
           />
           <CardBody>
-            <div className="assessment-list">
+            <div className="assessment-list" data-testid="assessment-list">
               {visible.map((entry) => (
                 <AssessmentCard
                   key={entry.id}

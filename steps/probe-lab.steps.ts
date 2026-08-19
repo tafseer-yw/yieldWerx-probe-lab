@@ -22,12 +22,10 @@ function sampleCsvWithUniqueLot(): Buffer {
   return Buffer.from(raw.replaceAll('LOT-DEMO-01', `LOT-E2E-${Date.now()}`));
 }
 
-Given('the QA user is signed in', async ({ page, config }) => {
-  const creds = credentialsFor(config, 'qa');
-  await page.goto('/login');
-  await page.getByLabel('Username').fill(creds.username);
-  await page.getByLabel('Password').fill(creds.password);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+Given('the QA user is signed in', async ({ page, loginPage, config }) => {
+  /* Sign-in itself is a page-object action; the readiness assertions below stay
+     in the step, because a page object never asserts. */
+  await loginPage.signIn(credentialsFor(config, 'qa'));
   await page.waitForURL('**/dashboard');
   const systemStatus = page.getByRole('status', {
     name: 'System versions and database status',
@@ -271,17 +269,17 @@ Then(
 
     /* Markdown excerpts offer both views. Preview is the default, because that
        is how anyone reads a PRD; the source is what the skill actually wrote. */
-    const outcome = page.locator('.guide-outcome').first();
+    const outcome = page.getByTestId('step-outcome').first();
     await expect(outcome.getByRole('button', { name: 'Preview' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
-    await expect(outcome.locator('.md-preview')).toBeVisible();
+    await expect(outcome.getByTestId('outcome-preview')).toBeVisible();
     await expect(outcome.getByText('### US-01', { exact: false })).toHaveCount(0);
 
     await outcome.getByRole('button', { name: 'Markdown' }).click();
-    await expect(outcome.locator('.md-preview')).toHaveCount(0);
-    await expect(outcome.locator('.guide-outcome-sample')).toContainText('### US-01');
+    await expect(outcome.getByTestId('outcome-preview')).toHaveCount(0);
+    await expect(outcome.getByTestId('outcome-source')).toContainText('### US-01');
 
     await page.getByRole('button', { name: /QA track/u }).click();
     await expect(page.getByRole('heading', { name: 'QA track', exact: true })).toBeVisible();
@@ -461,15 +459,20 @@ When('the QA user opens the assessments page', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Dev track', exact: true })).toBeVisible();
 });
 
-Then('each track lists fifteen assessments ordered from starter to expert', async ({ page }) => {
+Then('each track lists its assessments ordered from starter to expert', async ({ page }) => {
+  /* Each card is an <article> inside the list container, so the count comes
+     from roles under a testid — no styling selectors. The two tracks are
+     different sizes, so assert a floor rather than a magic number. */
+  const cards = page.getByTestId('assessment-list').getByRole('article');
   await expect(page.getByTestId('assessment-dev-01')).toBeVisible();
-  await expect(page.locator('.assessment')).toHaveCount(15);
+  await expect(cards.first()).toContainText('Starter');
+  await expect(cards.last()).toContainText('Expert');
   await page.getByRole('button', { name: 'QA track' }).click();
   await expect(page.getByTestId('assessment-qa-01')).toBeVisible();
-  await expect(page.locator('.assessment')).toHaveCount(15);
+  await expect(page.getByTestId('assessment-qa-20')).toBeVisible();
   /* The ladder's direction: first card Starter, last card Expert. */
-  await expect(page.locator('.assessment').first()).toContainText('Starter');
-  await expect(page.locator('.assessment').last()).toContainText('Expert');
+  await expect(cards.first()).toContainText('Starter');
+  await expect(cards.last()).toContainText('Expert');
 });
 
 When('the QA user clears any recorded result on the first QA assessment', async ({ page }) => {

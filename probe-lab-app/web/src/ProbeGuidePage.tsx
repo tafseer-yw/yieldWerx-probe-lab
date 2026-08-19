@@ -2041,7 +2041,10 @@ function StepOutcomeBlock({ outcome }: { outcome: StepOutcome }): ReactElement {
   const isMarkdown = outcome.format === 'markdown' && outcome.sample !== undefined;
 
   return (
-    <div className={outcome.ran ? 'guide-outcome' : 'guide-outcome is-skipped'}>
+    <div
+      className={outcome.ran ? 'guide-outcome' : 'guide-outcome is-skipped'}
+      data-testid="step-outcome"
+    >
       <div className="guide-outcome-head">
         <p className="guide-outcome-label">
           {outcome.ran ? 'What it produced here' : 'Not exercised by this example'}
@@ -2070,11 +2073,13 @@ function StepOutcomeBlock({ outcome }: { outcome: StepOutcome }): ReactElement {
       <p className="guide-outcome-detail">{outcome.detail}</p>
       {outcome.sample ? (
         isMarkdown && !showSource ? (
-          <div className="guide-outcome-preview">
+          <div className="guide-outcome-preview" data-testid="outcome-preview">
             <MarkdownPreview source={outcome.sample} />
           </div>
         ) : (
-          <pre className="guide-outcome-sample">{outcome.sample}</pre>
+          <pre className="guide-outcome-sample" data-testid="outcome-source">
+            {outcome.sample}
+          </pre>
         )
       ) : null}
       {outcome.path ? <p className="guide-outcome-path">{outcome.path}</p> : null}

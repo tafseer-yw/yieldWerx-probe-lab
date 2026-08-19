@@ -109,7 +109,7 @@ export async function registerClusterDetectionRoutes(
   app.get<{ Querystring: ClusterSummaryQuery; Reply: ClusterDetectionSummary }>(
     '/api/cd/summary',
     {
-      preHandler: requireRole('viewer'),
+      onRequest: requireRole('viewer'),
       schema: {
         tags: ['Cluster Detection'],
         summary: 'Aggregate cluster detection over the latest wafers',
@@ -180,7 +180,7 @@ export async function registerClusterDetectionRoutes(
   }>(
     '/api/cd/wafers/:waferSequence/clusters',
     {
-      preHandler: requireRole('viewer'),
+      onRequest: requireRole('viewer'),
       schema: {
         tags: ['Cluster Detection'],
         summary: 'Detect contiguous fail-die clusters on a wafer',

@@ -64,7 +64,7 @@ export async function registerWaferRoutes(
   app.get<{ Querystring: WaferQuery; Reply: WaferPage }>(
     '/api/wafers',
     {
-      preHandler: requireRole('viewer'),
+      onRequest: requireRole('viewer'),
       schema: {
         tags: ['Wafers'],
         summary: 'List landed wafers',
@@ -120,7 +120,7 @@ export async function registerWaferRoutes(
   app.get<{ Params: { waferSequence: number } }>(
     '/api/wafers/:waferSequence',
     {
-      preHandler: requireRole('viewer'),
+      onRequest: requireRole('viewer'),
       schema: {
         tags: ['Wafers'],
         summary: 'Get a wafer with its die-level results',

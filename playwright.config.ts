@@ -8,6 +8,7 @@ import { defineConfig, devices } from '@playwright/test';
 import { defineBddConfig } from 'playwright-bdd';
 
 import { loadConfig } from './src/core/config';
+import { VISUAL_BASELINE_TEMPLATE } from './src/core/visual';
 
 const config = loadConfig();
 
@@ -30,6 +31,14 @@ export default defineConfig({
     ['html', { open: 'never', outputFolder: 'reports/playwright-report' }],
     ['junit', { outputFile: 'reports/junit.xml' }],
   ],
+  /*
+   * Visual baselines live in a committed directory, decoupled from the
+   * generated BDD test dir (.features-gen is gitignored, so a template derived
+   * from {testDir} would put baselines somewhere git never sees). The template
+   * itself is pinned in src/core/visual.ts beside the odiff tolerances, and the
+   * framework-selftest project fails if either drifts.
+   */
+  snapshotPathTemplate: VISUAL_BASELINE_TEMPLATE,
   use: {
     baseURL: config.baseUrl,
     testIdAttribute: 'data-testid',
@@ -48,7 +57,31 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      // @visual scenarios only make sense inside the pinned container, so the
+      // everyday project never selects them (see src/core/visual.ts).
+      grepInvert: /@visual/,
       use: { ...devices['Desktop Chrome'] },
+    },
+    /**
+     * Pixel regression for the canvas charts, compared with odiff. Runs ONLY
+     * inside the pinned Playwright container (npm run test:visual) — the
+     * @visual step skips host runs, because host-rendered pixels differ per
+     * GPU and font stack and must never gate anything.
+     */
+    {
+      name: 'visual',
+      testDir: bddTestDir,
+      grep: /@visual/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    /**
+     * Framework self-tests: plain specs (no browser, no app) that fail when a
+     * pinned framework setting drifts — today, the visual tolerances and
+     * baseline path. Runs everywhere, including the host.
+     */
+    {
+      name: 'framework-selftest',
+      testDir: './tests/selftest',
     },
   ],
 });

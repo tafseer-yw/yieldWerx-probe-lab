@@ -34,6 +34,15 @@ export interface JwtPayload {
   role: UserRole;
 }
 
+/**
+ * Registered as an `onRequest` hook, NOT `preHandler`, and the difference is a
+ * security property: Fastify validates the request body BETWEEN those two, so
+ * a preHandler guard let anonymous callers probe request schemas — a malformed
+ * body answered 400 before authentication was ever checked (found by the
+ * security suite: a viewer's refused write came back 400, not 403). onRequest
+ * runs on headers alone, which is all a token check needs, so authentication
+ * and authorization now answer before anything else does.
+ */
 export function requireRole(minimumRole: UserRole) {
   return async function authorize(request: FastifyRequest): Promise<void> {
     let payload: JwtPayload;
