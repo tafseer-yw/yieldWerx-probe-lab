@@ -25,6 +25,9 @@ commands:
 integrations:
   browser:
     provider: playwright-mcp
+  caseManagement:
+    provider: aio
+    required: false
   knowledge:
     provider: yieldwerx-knowledgebase
     required: false
@@ -32,6 +35,7 @@ integrations:
     marketplace: yieldwerx-company
     plugin: yieldwerx-knowledgebase
     skill: ask-yieldwerx
+    revision: 1.1.1
 
 policies:
   caseFormat: gherkin
@@ -39,4 +43,3 @@ policies:
   preserveManualTag: true
   testIdRequired: true
   wrongBusinessDataSeverity: blocker
-

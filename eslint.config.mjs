@@ -44,6 +44,7 @@ export default tseslint.config(
     files: [
       'src/**/*.ts',
       'steps/**/*.ts',
+      'scripts/**/*.ts',
       'playwright.config.ts',
       'probe-lab-app/{api,scripts,shared,tests,web}/**/*.{ts,tsx}',
     ],
@@ -68,6 +69,10 @@ export default tseslint.config(
         },
       ],
     },
+  },
+  {
+    files: ['scripts/**/*.ts'],
+    rules: { 'no-console': 'off' },
   },
   {
     files: ['steps/**/*.ts'],
