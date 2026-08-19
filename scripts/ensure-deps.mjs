@@ -36,7 +36,6 @@
  * noise people learn to scroll past.
  */
 
-import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -50,60 +49,54 @@ const TARGETS = {
   app: { dir: path.join(REPO_ROOT, 'probe-lab-app'), label: 'probe-lab-app' },
 };
 
-/**
- * Where the fingerprint of the last successful install is kept. Inside
- * node_modules on purpose: deleting node_modules must also delete the claim
- * that it was ever installed, and nothing here can be committed by accident.
- */
-const STAMP = '.probe-deps-stamp';
-
 function say(message) {
   console.log(`probe-lab: ${message}`);
 }
 
 /**
- * Fingerprint of what the tree is supposed to contain. The lockfile is the
- * right input — it changes on every dependency change, including a transitive
- * one that package.json does not mention.
- */
-function fingerprint(dir) {
-  for (const file of ['package-lock.json', 'package.json']) {
-    const full = path.join(dir, file);
-    if (fs.existsSync(full)) {
-      return createHash('sha256').update(fs.readFileSync(full)).digest('hex');
-    }
-  }
-  return null;
-}
-
-/**
  * Why this package needs installing, or null when it does not.
  *
+ * The test is the one that actually answers "will the next command run": is
+ * every package this project declares present on disk. That catches every
+ * failure mode above, including the reported one — `--omit=dev` leaves a
+ * node_modules that looks fine right up until tsx turns out not to be in it —
+ * and it catches a `git pull` that adds a dependency.
+ *
+ * Deliberately NOT a hash of package-lock.json, which an earlier version of
+ * this file used. `npm install` rewrites the lockfile on some platforms (on
+ * macOS it strips the `libc` constraints from optional Linux packages), so a
+ * lockfile-hash stamp never settles: install, lockfile churns, hash mismatches,
+ * install again. A guard that reinstalls on every command and dirties git each
+ * time is worse than the bug it was written for.
+ *
  * `node_modules/.package-lock.json` is npm's own record of what it laid down.
- * Its absence next to a present node_modules means an interrupted or partial
- * install, which looks healthy to a bare directory check and then fails at the
- * first missing binary.
+ * Its absence beside a present node_modules means an interrupted install.
  */
-function reasonToInstall(dir, { adopt } = { adopt: false }) {
+function reasonToInstall(dir) {
   const modules = path.join(dir, 'node_modules');
   if (!fs.existsSync(modules)) return 'dependencies are not installed';
   if (!fs.existsSync(path.join(modules, '.package-lock.json'))) {
     return 'the dependency tree looks incomplete';
   }
-  const expected = fingerprint(dir);
-  if (expected === null) return null;
 
-  const stampPath = path.join(modules, STAMP);
-  if (!fs.existsSync(stampPath)) {
-    /* No stamp: this package was installed before the guard existed. npm's own
-       record says the tree is complete, so adopt it rather than forcing a
-       reinstall on everyone who already had a working checkout. `adopt` is
-       false under --check, which must report without touching anything. */
-    if (adopt) fs.writeFileSync(stampPath, expected);
+  let pkg;
+  try {
+    pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+  } catch {
     return null;
   }
-  const recorded = fs.readFileSync(stampPath, 'utf8').trim();
-  return recorded === expected ? null : 'dependencies changed since the last install';
+  const declared = [
+    ...Object.keys(pkg.dependencies ?? {}),
+    ...Object.keys(pkg.devDependencies ?? {}),
+  ];
+  /* A scoped name is two path segments, so split rather than use the raw name. */
+  const absent = declared.filter((name) => !fs.existsSync(path.join(modules, ...name.split('/'))));
+  if (absent.length === 0) return null;
+
+  const shown = absent.slice(0, 3).join(', ');
+  return absent.length <= 3
+    ? `${shown} ${absent.length === 1 ? 'is' : 'are'} declared but not installed`
+    : `${absent.length} declared packages are missing (${shown}, …)`;
 }
 
 /**
@@ -128,8 +121,6 @@ function install(dir, label) {
     );
     return false;
   }
-  const stamp = fingerprint(dir);
-  if (stamp) fs.writeFileSync(path.join(dir, 'node_modules', STAMP), stamp);
   return true;
 }
 
@@ -148,7 +139,7 @@ for (const name of selected) {
   const { dir, label } = TARGETS[name];
   if (!fs.existsSync(path.join(dir, 'package.json'))) continue;
 
-  const reason = reasonToInstall(dir, { adopt: !checkOnly });
+  const reason = reasonToInstall(dir);
   if (reason === null) continue;
 
   if (checkOnly) {

@@ -124,11 +124,14 @@ The guard imports **`node:` builtins only**, and is `.mjs` run by `node` rather
 than `.ts` run by `tsx`, because tsx is exactly what goes missing. Any import of
 a package here would reintroduce the failure it exists to remove.
 
-It is silent when the tree is healthy (~45ms), and reinstalls when the lockfile
-hash stops matching the stamp it wrote at `node_modules/.probe-deps-stamp` — so
-a `git pull` that adds a dependency heals on the next command. `postinstall`
-passes `--include=dev` so a nested install cannot inherit `--omit=dev` or
-`NODE_ENV=production` and silently skip devDependencies.
+It is silent when the tree is healthy (~40ms). The check is whether every
+package the project declares is present on disk — the question that actually
+decides whether the next command runs — so a `git pull` that adds a dependency,
+and an `--omit=dev` install that skipped tsx, both heal on the next command.
+It is deliberately not a lockfile hash: `npm install` rewrites the lockfile on
+some platforms, so a hash would never settle and would dirty git on every run.
+`postinstall` passes `--include=dev` so a nested install cannot inherit
+`--omit=dev` or `NODE_ENV=production` and silently skip devDependencies.
 
 ## Maintenance
 
