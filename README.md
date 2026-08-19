@@ -17,23 +17,106 @@ A lightweight, fully offline repo bundling **a small wafer-analysis app**, **the
 - **BDD framework** (`src/`, `steps/`, `features/`, `playwright.config.ts`) — Playwright + `playwright-bdd`. A starter suite ([`features/probe-lab/workflow.feature`](features/probe-lab/workflow.feature)) drives the four workflows through the UI. `npm test` regenerates the specs (`bddgen`) and runs them, auto-starting the app via `webServer`.
 - **PROBE plugin** (`vendor/probe` + [`.claude/settings.json`](.claude/settings.json) + [`probe.config.yaml`](probe.config.yaml)) — `yw@yieldwerx`, from `tafseer-yw/yieldwerx-probe`. Open Claude Code here and the `/yw:*` skills load; `probe.config.yaml` is the consumer contract (paths + commands).
 
-## Quickstart
+## Install and run
+
+Five steps from an empty folder to a running app. Everything is local and offline — no
+credentials, no network services, no shared database.
+
+### Before you start
+
+| Need               | Why                                                                  |
+| ------------------ | -------------------------------------------------------------------- |
+| **Node.js 22.18+** | An older Node fails during install rather than at runtime. `node -v` |
+| **npm**            | Ships with Node.                                                     |
+| **Git**            | To clone this repository.                                            |
+| **Git LFS**        | Only if you also clone the Knowledgebase, whose documents use LFS.   |
+
+### 1. Get the repository
 
 ```bash
-npm install                 # installs the root tooling and the app dependencies
-npx playwright install chromium
-npm run app:dev             # seed SQLite and start API :5000 + web :3000
+git clone https://github.com/tafseer-yw/yieldWerx-probe-lab.git
+cd yieldWerx-probe-lab
 ```
 
-Open <http://127.0.0.1:3000> and sign in with `dev / dev` or `qa / qa`; use `admin / admin` to manage sample wafers. The interactive **PROBE guide** is beside **API docs** in the app header.
+### 2. Install dependencies
 
-Run the verification suite from a second terminal:
+```bash
+npm install
+```
+
+One command covers both packages. This repository holds two: the test framework at the root,
+and the app under `probe-lab-app/` with its own `package.json` and `node_modules`. The root
+install finishes by installing the app's as well.
+
+### 3. Install the browser Playwright drives
+
+```bash
+npx playwright install chromium
+```
+
+Separate from `npm install` on purpose — this downloads a browser binary, not an npm package.
+Skip it and the suite fails on its first scenario.
+
+### 4. Start the lab
+
+```bash
+npm run app:dev
+```
+
+Seeds the SQLite database, then runs the API (`:5000`) and the web app (`:3000`) together.
+Leave it running and use a second terminal for everything else.
+
+Open <http://127.0.0.1:3000> and sign in with `dev / dev` or `qa / qa`; use `admin / admin` to
+manage sample wafers. The interactive **PROBE guide** is beside **API docs** in the app header.
+
+### 5. Confirm the install is complete
+
+```bash
+node scripts/ensure-deps.mjs --check
+```
+
+Prints nothing and exits `0` when every declared package is present; names whatever is missing
+otherwise. It installs nothing, so it is safe to run any time, including in CI.
+
+Then run the verification suite from a second terminal:
 
 ```bash
 npm test
 ```
 
-`npm test` starts the app automatically when it is not already running. It executes the app unit/API tests and seven browser scenarios covering upload, wafer maps, triage, cluster detection, bin pareto, the interactive guide, and audited controls and permissions.
+`npm test` starts the app automatically when it is not already running. It executes the app
+unit/API tests and seven browser scenarios covering upload, wafer maps, triage, cluster
+detection, bin pareto, the interactive guide, and audited controls and permissions.
+
+### A missing dependency will not stop you
+
+Every front-door script in both packages checks its dependencies first and installs them if they
+are absent, so a fresh clone, a skipped `npm install`, or a `git pull` that added a package all
+repair themselves on the next command you run:
+
+```text
+probe-lab: probe-lab-app: tsx is declared but not installed — installing now, this runs once.
+added 208 packages in 3s
+probe-lab: probe-lab-app: ready.
+```
+
+The check is whether every declared package is present on disk — the question that decides
+whether the command can run — so it also catches an install that ran with `--omit=dev` or
+`NODE_ENV=production` and quietly skipped development dependencies. It is silent and takes about
+40 ms when nothing is wrong.
+
+The one exception is `npm run <script> --ignore-scripts`, which skips this check along with every
+other hook.
+
+### If something goes wrong
+
+| Symptom                               | What it means and what to do                                                                                                                                                                              |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tsx: command not found`              | The app's dependencies were never installed — usually an install that ran as `--omit=dev` or with `NODE_ENV=production`, and tsx is a devDependency. Run the command again; it now installs them for you. |
+| `EADDRINUSE` on 3000 or 5000          | An earlier run still holds the port. Stop it, or find it with `lsof -i :5000`.                                                                                                                            |
+| The app starts but has no wafers      | The database seeded empty. Delete `probe-lab-app/data/practice-probe-db.sqlite*` and run `npm run app:dev` again to recreate and reseed it.                                                               |
+| Playwright cannot find a browser      | Step 3 was skipped, or ran against a different Node installation. Rerun `npx playwright install chromium`.                                                                                                |
+| `/yw:` skills do not appear in Claude | The plugin is not installed. See [PROBE and Knowledgebase plugins](#probe-and-knowledgebase-plugins).                                                                                                     |
 
 ## Practice tracks
 
@@ -136,18 +219,20 @@ docs/                  # PRDs (the 3 workflows' requirements) + index
 
 ## PROBE
 
-Open Claude Code **from this repo** — `.claude/settings.json` registers the `yieldwerx` marketplace and enables `yw@yieldwerx`, so the 34 `/yw:*` skills (probe-spec, forge-cases, gate-design, ask-yieldwerx, …) load. `probe.config.yaml` tells PROBE where `features`/`ledgers`/`test-data` live and which npm scripts to call (`bddgen`, `lint`, `typecheck`, `test`, `app:build`). The plugin is vendored at `vendor/probe` for offline reference; its own docs live in `vendor/probe/docs/`.
+Open Claude Code **from this repo** — `.claude/settings.json` registers the `yieldwerx` marketplace and enables `yw@yieldwerx`, so the 42 `/yw:*` skills (probe-spec, forge-prd, forge-cases, gate-design, ask-yieldwerx, …) load. `probe.config.yaml` tells PROBE where `features`/`ledgers`/`test-data` live and which npm scripts to call (`bddgen`, `lint`, `typecheck`, `test`, `app:build`). Clone it to `vendor/probe` for offline reference — that path is gitignored, so it is local state you create, and its own docs then live in `vendor/probe/docs/`.
 
 ## Scripts
 
-| Command              | Purpose                                             |
-| -------------------- | --------------------------------------------------- |
-| `npm test`           | app unit/API tests + bddgen + Playwright (chromium) |
-| `npm run test:app`   | app unit and API contract tests                     |
-| `npm run test:smoke` | the `@smoke` slice                                  |
-| `npm run typecheck`  | `tsc --noEmit` (strict)                             |
-| `npm run lint`       | `eslint .`                                          |
-| `npm run app:dev`    | seed + run probe-lab-app (API :5000 + web :3000)    |
-| `npm run app:build`  | production-build probe-lab-app                      |
+| Command                                | Purpose                                               |
+| -------------------------------------- | ----------------------------------------------------- |
+| `npm test`                             | app unit/API tests + bddgen + Playwright (chromium)   |
+| `npm run test:app`                     | app unit and API contract tests                       |
+| `npm run test:smoke`                   | the `@smoke` slice                                    |
+| `npm run typecheck`                    | `tsc --noEmit` (strict)                               |
+| `npm run lint`                         | `eslint .`                                            |
+| `npm run app:dev`                      | seed + run probe-lab-app (API :5000 + web :3000)      |
+| `npm run app:build`                    | production-build probe-lab-app                        |
+| `npm run check:connections`            | verify the AIO Tests and Jira credentials (read-only) |
+| `node scripts/ensure-deps.mjs --check` | report missing dependencies without installing        |
 
 See [`CLAUDE.md`](CLAUDE.md) for working agreements and [`probe-lab-app/README.md`](probe-lab-app/README.md) for the app.
