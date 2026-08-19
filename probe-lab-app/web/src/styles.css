@@ -3035,6 +3035,187 @@ td.mono {
   color: var(--accent);
 }
 
+/* ---------------------------------------------------------------- skills --- */
+
+.skills-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.skills-sidebar {
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.skills-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink-3);
+}
+
+.skills-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-1);
+  font-size: 13px;
+}
+
+.skills-search input:focus {
+  outline: none;
+}
+
+.skills-search:focus-within {
+  border-color: var(--accent);
+}
+
+.skills-group-head {
+  margin: 0 0 6px !important;
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.skills-group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.skills-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.skills-item:hover {
+  background: var(--surface-2);
+  color: var(--ink-1);
+}
+
+.skills-item.is-active {
+  background: var(--surface-3, var(--surface-2));
+  color: var(--ink-1);
+  font-weight: 600;
+}
+
+.skills-item-name {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skills-item-track {
+  flex-shrink: 0;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+}
+
+.skills-empty {
+  font-size: 13px;
+}
+
+.skills-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.skills-title code {
+  font-size: 16px;
+  font-weight: 650;
+}
+
+/* The verbatim SKILL.md, scrollable so a long source never widens the page. */
+.skills-source {
+  margin: 0;
+  padding: 14px 16px;
+  max-height: 70vh;
+  overflow: auto;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.skills-render {
+  max-height: 74vh;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+.skills-explain {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skills-explain-block .guide-arg-label {
+  margin-bottom: 6px !important;
+}
+
+.skills-harden {
+  padding: 12px 14px;
+  border-left: 2px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  background: var(--surface-2);
+}
+
+.skills-explain-foot {
+  margin: 4px 0 0 !important;
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+
+@media (max-width: 860px) {
+  .skills-layout {
+    grid-template-columns: 1fr;
+  }
+  .skills-sidebar {
+    position: static;
+    max-height: none;
+  }
+}
+
 /* --------------------------------------------------------------- upload --- */
 
 .dropzone {
