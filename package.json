@@ -2,7 +2,7 @@
   "name": "yieldwerx-probe-lab",
   "version": "0.1.0",
   "private": true,
-  "description": "yieldWerx PROBE Lab — hands-on PROBE practice for Dev and QA",
+  "description": "yieldWerx PROBE Lab \u2014 hands-on PROBE practice for Dev and QA",
   "engines": {
     "node": ">=22.18"
   },
@@ -13,6 +13,9 @@
     "test:smoke": "bddgen && playwright test --grep @smoke --project=chromium",
     "test:regression": "bddgen && playwright test --grep @regression --project=chromium",
     "test:ui": "bddgen && playwright test --ui",
+    "check:connections": "tsx scripts/check-connections.ts",
+    "check:aio": "tsx scripts/check-connections.ts aio",
+    "check:jira": "tsx scripts/check-connections.ts jira",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

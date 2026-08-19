@@ -42,14 +42,15 @@ requested PROBE stage. Work on a feature starts by reading its ledger:
 
 ## Commands
 
-| Command              | Purpose                                                                              |
-| -------------------- | ------------------------------------------------------------------------------------ |
-| `npm test`           | bddgen + Playwright (chromium); the webServer auto-starts probe-lab-app              |
-| `npm run test:smoke` | the `@smoke` tag slice                                                               |
-| `npm run typecheck`  | `tsc --noEmit` (strict)                                                              |
-| `npm run lint`       | `eslint .` (no `any`, no raw CSS/XPath locators in steps, downward import direction) |
-| `npm run app:dev`    | seed + run probe-lab-app (API :5000 + web :3000)                                     |
-| `npm run app:build`  | production-build probe-lab-app                                                       |
+| Command                     | Purpose                                                                              |
+| --------------------------- | ------------------------------------------------------------------------------------ |
+| `npm test`                  | bddgen + Playwright (chromium); the webServer auto-starts probe-lab-app              |
+| `npm run test:smoke`        | the `@smoke` tag slice                                                               |
+| `npm run typecheck`         | `tsc --noEmit` (strict)                                                              |
+| `npm run lint`              | `eslint .` (no `any`, no raw CSS/XPath locators in steps, downward import direction) |
+| `npm run app:dev`           | seed + run probe-lab-app (API :5000 + web :3000)                                     |
+| `npm run check:connections` | verify the AIO Tests and Jira credentials reach their configured project (read-only) |
+| `npm run app:build`         | production-build probe-lab-app                                                       |
 
 ## Architecture
 
