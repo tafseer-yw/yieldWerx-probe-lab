@@ -8,6 +8,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import type { Locator, Page } from '@playwright/test';
+
 import { credentialsFor } from '@core/config';
 import { REPO_ROOT } from '@core/paths';
 import { expect, Given, Then, When } from './fixtures';
@@ -366,4 +368,69 @@ Then('a viewer cannot open the upload workflow', async ({ page, config }) => {
   await page.goto('/upload');
   await page.waitForURL('**/dashboard');
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+});
+
+/*
+ * The sample wafers popup, in the state that made it look broken: everything
+ * already loaded. It used to pre-select only the wafers that were NOT loaded,
+ * so with all of them loaded nothing was selected, both buttons were disabled,
+ * and there was no hint that each row had to be ticked first.
+ */
+
+/** The popup, opened from the header as an admin. */
+function samplePopup(page: Page): Locator {
+  return page.getByRole('dialog');
+}
+
+When('the admin loads every sample wafer', async ({ page, config }) => {
+  /* The Background signs in as QA, and /login redirects when a session exists,
+     so sign out first rather than navigating into a redirect. */
+  await page.getByRole('button', { name: /qa/u }).click();
+  await page.getByRole('menuitem', { name: 'Sign out' }).click();
+  await page.waitForURL('**/login');
+
+  const admin = credentialsFor(config, 'admin');
+  await page.getByLabel('Username').fill(admin.username);
+  await page.getByLabel('Password').fill(admin.password);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.waitForURL('**/dashboard');
+
+  await page
+    .getByRole('banner')
+    .getByRole('button', { name: 'Sample wafers', exact: true })
+    .click();
+  const popup = samplePopup(page);
+  await expect(popup).toBeVisible();
+
+  /* Start from a known state: remove anything a previous scenario left. */
+  const remove = page.getByRole('button', { name: /^Remove/ });
+  if (await remove.isEnabled()) {
+    await remove.click();
+    await expect(page.getByRole('button', { name: /^Load \(\d+\)/ })).toBeEnabled();
+  }
+  await page.getByRole('button', { name: /^Load/ }).click();
+  await expect(popup.getByText('4 of 4 loaded')).toBeVisible({ timeout: 15_000 });
+});
+
+When('the admin reopens the sample wafers popup', async ({ page }) => {
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(samplePopup(page)).toHaveCount(0);
+  await page
+    .getByRole('banner')
+    .getByRole('button', { name: 'Sample wafers', exact: true })
+    .click();
+  await expect(samplePopup(page)).toBeVisible();
+});
+
+Then('the popup offers to remove all of them without ticking anything', async ({ page }) => {
+  const popup = samplePopup(page);
+  await expect(popup.getByText('4 of 4 loaded')).toBeVisible();
+  /* The whole regression: this button was disabled, with nothing selected. */
+  await expect(page.getByRole('button', { name: 'Remove (4)' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: /^Load/ })).toBeDisabled();
+});
+
+Then('removing them leaves no sample wafers loaded', async ({ page }) => {
+  await page.getByRole('button', { name: /^Remove/ }).click();
+  await expect(samplePopup(page).getByText('0 of 4 loaded')).toBeVisible({ timeout: 15_000 });
 });

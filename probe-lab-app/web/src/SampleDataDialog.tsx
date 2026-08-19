@@ -30,7 +30,11 @@ export function SampleDataDialog({ onClose }: { onClose: () => void }): ReactEle
     mutationFn: (keys: string[]) => api.loadSampleData(keys),
     onSuccess: () => {
       setChosen(new Set());
-      setTouched(true);
+      /* Let the pre-selection run again against the new state. Leaving this
+         true stranded the dialog after every action: remove everything and
+         nothing was selected, so Load sat disabled with no explanation —
+         the same dead end, in the other direction. */
+      setTouched(false);
       return queryClient.invalidateQueries();
     },
     onError: (err: unknown) => setError(errorMessage(err)),
@@ -39,7 +43,11 @@ export function SampleDataDialog({ onClose }: { onClose: () => void }): ReactEle
     mutationFn: (keys: string[]) => api.removeSampleData(keys),
     onSuccess: () => {
       setChosen(new Set());
-      setTouched(true);
+      /* Let the pre-selection run again against the new state. Leaving this
+         true stranded the dialog after every action: remove everything and
+         nothing was selected, so Load sat disabled with no explanation —
+         the same dead end, in the other direction. */
+      setTouched(false);
       return queryClient.invalidateQueries();
     },
     onError: (err: unknown) => setError(errorMessage(err)),
@@ -48,10 +56,24 @@ export function SampleDataDialog({ onClose }: { onClose: () => void }): ReactEle
   const busy = load.isPending || remove.isPending;
   const dialogRef = useDialogFocus(onClose, busy);
 
-  // Pre-select whatever is not loaded yet, so "load everything" stays one click.
+  /*
+   * Open ready to do the one thing that is actually available.
+   *
+   * This used to pre-select only the wafers that were NOT loaded, which is
+   * right while some are still missing but leaves nothing selected once every
+   * wafer is loaded — and then both buttons are disabled, the footer reads
+   * "0 selected", and the dialog looks broken to someone who came to remove
+   * them. Nothing explained that each row had to be ticked first.
+   *
+   * So: when everything is loaded, pre-select everything, and Remove is one
+   * click for the same reason Load was. Mixed state still pre-selects the
+   * unloaded ones, because loading the rest is the obvious next step there.
+   */
   useEffect(() => {
     if (touched || wafers.length === 0) return;
-    setChosen(new Set(wafers.filter((wafer) => !wafer.loaded).map((wafer) => wafer.key)));
+    const unloaded = wafers.filter((wafer) => !wafer.loaded);
+    const preselect = unloaded.length > 0 ? unloaded : wafers;
+    setChosen(new Set(preselect.map((wafer) => wafer.key)));
   }, [touched, wafers]);
 
   const toLoad = wafers.filter((wafer) => chosen.has(wafer.key) && !wafer.loaded);
@@ -173,7 +195,7 @@ export function SampleDataDialog({ onClose }: { onClose: () => void }): ReactEle
           <span className="pager-info">
             {toLoad.length > 0 || toRemove.length > 0
               ? `${toLoad.length} to load · ${toRemove.length} to remove`
-              : `${chosen.size} selected`}
+              : 'Pick a wafer to load or remove'}
           </span>
           <div className="pager">
             <button
