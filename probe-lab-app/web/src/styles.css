@@ -2297,10 +2297,23 @@ tr.is-clickable:hover td {
   cursor: pointer;
 }
 
-.guide-step-check input {
+/* The step number sits in a circle and the checkbox is the whole circle,
+   invisible on top of it.
+   Selector note: this MUST out-specify the app-wide `input[type='checkbox']`
+   rule, which is the same 0-1-1 specificity and appears later in this file — so
+   the bare `.guide-step-check input` it replaced lost the tie, the checkbox kept
+   `position: relative` at 16px, and its in-flow box pushed the digit into a
+   second grid row 8.5px below centre. Keep the attribute in the selector. */
+.guide-step-check input[type='checkbox'] {
   position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
   opacity: 0;
   cursor: pointer;
 }
@@ -2313,6 +2326,174 @@ tr.is-clickable:hover td {
 .guide-agent {
   color: var(--ink-3) !important;
   font-size: 12px;
+}
+
+/* Per-argument breakdown under each skill: the token, whether it is required,
+   and what supplying it actually changes. A definition list because that is what
+   it is - term and meaning - not a table nobody can read on a phone. */
+.guide-args {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 4px;
+}
+
+.guide-arg dt {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.guide-arg dt code {
+  font-size: 12px;
+  word-break: break-word;
+}
+
+.guide-arg dd {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.guide-arg-req,
+.guide-arg-opt {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.guide-arg-req {
+  color: var(--accent);
+}
+
+.guide-arg-opt {
+  color: var(--ink-3);
+}
+
+/* The stack explainer at the top of the dev track. */
+.guide-stacks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.guide-stacks h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.guide-stacks-lead {
+  margin: 0;
+  max-width: 70ch;
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.guide-stack-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.guide-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.guide-stack header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.guide-stack header code {
+  font-size: 12px;
+}
+
+.guide-stack h4 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.guide-stack p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.guide-stack-layers,
+.guide-stack-when {
+  color: var(--ink-3) !important;
+}
+
+.guide-stack-status {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.guide-stack-status.is-current {
+  color: var(--accent);
+  background: var(--accent-soft, transparent);
+  border: 1px solid var(--border);
+}
+
+.guide-stack-status.is-provisional {
+  color: var(--warning);
+  border: 1px dashed var(--border-strong);
+}
+
+.guide-stack-status.is-qa-only {
+  color: var(--ink-3);
+  border: 1px solid var(--border);
+}
+
+/* Labels the two command blocks under each step: the argument contract, then a
+   runnable example. Without them the two blocks read as one duplicated command. */
+.guide-arg-label {
+  color: var(--ink-3) !important;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 10px 0 4px !important;
+}
+
+/* Marks a skill both tracks use, so its appearance in both lists reads as
+   deliberate rather than as a duplicate. */
+.guide-shared-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2, transparent);
+  color: var(--ink-3);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: middle;
 }
 
 @media (max-width: 900px) {
