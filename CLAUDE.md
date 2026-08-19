@@ -58,10 +58,17 @@ requested PROBE stage. Work on a feature starts by reading its ledger:
 
 - `src/core/` is the bottom layer (config, paths, logger, fixtures, types); it
   imports nothing above it.
+- `src/pages/` and `src/components/` hold the **page-object model** — page
+  objects (one per screen) and component objects (reusable widgets scoped to a
+  root). They carry locators and actions only, never assertions, and sit below
+  steps and above core; the direction is enforced by eslint. Constructed once
+  in `src/core/fixtures.ts` and injected into steps by name. `BasePage` /
+  `BaseComponent` are the thin bases. `steps/visual.steps.ts` is the reference.
 - `steps/` import `test`/`expect`/`Given`/`When`/`Then` from `steps/fixtures.ts`
   (bound to `src/core/fixtures.ts`). Steps are the only layer that asserts; they
-  drive the app through Playwright `page` + getByRole/getByTestId (no raw CSS/XPath
-  locators — see `.claude/rules/locator-policy.md`).
+  drive the app through the page objects (preferred) or, for one-offs the POM
+  does not model, `page` + getByRole/getByTestId — never raw CSS/XPath (see
+  `.claude/rules/locator-policy.md`).
 - `features/` hold Gherkin; `bddgen` compiles them with `steps/` into
   `.features-gen/` (gitignored).
 - `playwright.config.ts` runs a single `chromium` project; its `webServer` runs
@@ -98,6 +105,27 @@ falsified evidence. Authority:
 
 Working artifacts: `.probe/artifacts/<feature>/<stage>/` (gitignored). Permanent
 trail: `docs/qa/<feature>/` (committed).
+
+## Test types
+
+Functional e2e is the everyday `chromium` project. Three specialised layers run
+on their own:
+
+- **Visual regression** (`npm run test:visual`) — pixel-pins the canvas charts
+  with odiff, **inside the pinned Playwright container only** (host GPU/font
+  stacks differ). Baselines live committed under `tests/visual/baselines/`;
+  regenerate with `npm run test:visual:baseline` after reviewing the diff.
+  Tolerances are pinned in `src/core/visual.ts` and guarded by the
+  `framework-selftest` project. Tag a scenario `@visual`.
+- **Performance** (`npm run perf:smoke`, then `perf:load` / `perf:stress` / ...)
+  — k6 in Docker against the host app; profiles are data behind a fail-closed
+  `assertSafeTarget` gate (load and external/production targets need explicit
+  unlocks). Summaries land under `reports/k6/`.
+- **Security** — `npm run security:tests` is the executable regression suite
+  (`probe-lab-app/tests/security.test.ts`) for the boundaries no scanner can
+  judge, tagged by OWASP 2025 category; `security:deps` / `security:sast` /
+  `security:baseline` drive osv-scanner, semgrep, and ZAP in Docker, the
+  baseline fail-closed without an explicit local target and authorization.
 
 ## Rules
 

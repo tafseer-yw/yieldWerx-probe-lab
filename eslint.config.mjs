@@ -71,6 +71,15 @@ export default tseslint.config(
               message:
                 'Dependency direction is downward: src/ must not import from steps/ or features/.',
             },
+            {
+              // Page and component objects sit below steps and above core.
+              // They compose off core, never reach up into steps, and never
+              // import each other's layer in a way that inverts the direction.
+              target: ['./src/pages', './src/components'],
+              from: ['./steps', './features'],
+              message:
+                'Page/component objects must not import from steps/ or features/ — steps consume them, not the other way round.',
+            },
           ],
         },
       ],

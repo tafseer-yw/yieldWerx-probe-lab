@@ -22,12 +22,10 @@ function sampleCsvWithUniqueLot(): Buffer {
   return Buffer.from(raw.replaceAll('LOT-DEMO-01', `LOT-E2E-${Date.now()}`));
 }
 
-Given('the QA user is signed in', async ({ page, config }) => {
-  const creds = credentialsFor(config, 'qa');
-  await page.goto('/login');
-  await page.getByLabel('Username').fill(creds.username);
-  await page.getByLabel('Password').fill(creds.password);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+Given('the QA user is signed in', async ({ page, loginPage, config }) => {
+  /* Sign-in itself is a page-object action; the readiness assertions below stay
+     in the step, because a page object never asserts. */
+  await loginPage.signIn(credentialsFor(config, 'qa'));
   await page.waitForURL('**/dashboard');
   const systemStatus = page.getByRole('status', {
     name: 'System versions and database status',
