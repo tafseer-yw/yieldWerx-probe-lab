@@ -7,6 +7,13 @@ Feature: yieldWerx PROBE Lab end-to-end workflows
   Background:
     Given the QA user is signed in
 
+  @regression
+  Scenario: Loaded sample wafers can be removed straight from the popup
+    When the admin loads every sample wafer
+    And the admin reopens the sample wafers popup
+    Then the popup offers to remove all of them without ticking anything
+    And removing them leaves no sample wafers loaded
+
   @smoke
   Scenario: Upload a wafer CSV and see it in the wafer list
     When the QA user uploads the sample wafer CSV
