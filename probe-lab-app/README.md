@@ -44,7 +44,7 @@ a diagnosis.
 
 ```bash
 cd probe-lab-app
-npm install                      # one-time
+npm install --ignore-scripts     # one-time; better-sqlite3 ships prebuilt, nothing to compile
 cp .env.example .env             # optional; use YW_* names to override local defaults
 npm start                        # seeds the DB, then runs API (:5000) + web (:3000)
 ```
