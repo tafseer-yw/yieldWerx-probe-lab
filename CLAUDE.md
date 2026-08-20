@@ -177,6 +177,17 @@ some platforms, so a hash would never settle and would dirty git on every run.
 `postinstall` passes `--include=dev` so a nested install cannot inherit
 `--omit=dev` or `NODE_ENV=production` and silently skip devDependencies.
 
+The **app** install also passes `--ignore-scripts`, and that flag is load-bearing
+as well. better-sqlite3 ships a prebuilt binary per platform and sets
+`gypfile: false` so npm leaves it alone, but npm never writes `gypfile` into
+`package-lock.json`. Every lockfile-resolved install — every one after the first,
+and every `npm ci` — therefore sees only `binding.gyp`, injects a default
+`node-gyp rebuild`, and fails with `Could not find any Python installation to
+use` on any machine without Python and a C++ toolchain. Nothing in the app tree
+needs an install script (esbuild's is a CLI optimisation vite does not use;
+fsevents is macOS-only and optional). The framework tree keeps its scripts,
+because unrs-resolver places the native resolver eslint imports.
+
 ## Maintenance
 
 - Any structural framework change updates this file in the same PR.

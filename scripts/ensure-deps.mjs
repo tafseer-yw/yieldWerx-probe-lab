@@ -43,10 +43,29 @@ import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-/** The two installable packages, by the name callers pass on the command line. */
+/**
+ * The two installable packages, by the name callers pass on the command line.
+ *
+ * probe-lab-app is installed with `ignoreScripts` because of better-sqlite3.
+ * It ships a prebuilt binary for every platform this repo runs on and declares
+ * `gypfile: false` so npm leaves those binaries alone — but npm never records
+ * `gypfile` in package-lock.json. Every install resolved from the lockfile,
+ * which is every install after the first and every `npm ci`, therefore sees
+ * only a `binding.gyp` on disk, injects a default `node-gyp rebuild`, and dies
+ * with `Could not find any Python installation to use` while compiling a SQLite
+ * that was already in the tarball. Skipping install scripts skips the phantom
+ * build. Nothing in the app tree needs one: esbuild's is an optimisation for
+ * its CLI, which vite does not use, and fsevents is macOS-only and optional.
+ * The framework tree keeps its scripts — unrs-resolver places the native
+ * resolver eslint imports there.
+ */
 const TARGETS = {
-  root: { dir: REPO_ROOT, label: 'framework' },
-  app: { dir: path.join(REPO_ROOT, 'probe-lab-app'), label: 'probe-lab-app' },
+  root: { dir: REPO_ROOT, label: 'framework', ignoreScripts: false },
+  app: {
+    dir: path.join(REPO_ROOT, 'probe-lab-app'),
+    label: 'probe-lab-app',
+    ignoreScripts: true,
+  },
 };
 
 function say(message) {
@@ -104,7 +123,7 @@ function reasonToInstall(dir) {
  * install inherits `--omit=dev` or `NODE_ENV=production` from whatever invoked
  * it and quietly reproduces the exact failure being repaired.
  */
-function install(dir, label) {
+function install(dir, label, ignoreScripts) {
   /*
    * Run through a shell, as one string, on every platform.
    *
@@ -117,9 +136,14 @@ function install(dir, label) {
    * `shell: true` is deprecated (DEP0190) and prints a warning on every run.
    * That is safe only because every token here is a fixed literal with no
    * spaces, quotes or interpolation; the one value that varies, the directory,
-   * travels in `cwd` and never touches the command line.
+   * travels in `cwd` and never touches the command line. The --ignore-scripts
+   * form below is a second whole literal rather than an interpolated flag so
+   * that stays true.
    */
-  const result = spawnSync('npm install --include=dev --no-audit --no-fund', {
+  const command = ignoreScripts
+    ? 'npm install --include=dev --no-audit --no-fund --ignore-scripts'
+    : 'npm install --include=dev --no-audit --no-fund';
+  const result = spawnSync(command, {
     cwd: dir,
     stdio: 'inherit',
     env: process.env,
@@ -132,7 +156,7 @@ function install(dir, label) {
   if (result.status !== 0) {
     say(`npm install failed for ${label} (exit ${result.status}).`);
     say(
-      `Run it yourself to see why:  cd ${path.relative(process.cwd(), dir) || '.'} && npm install`,
+      `Run it yourself to see why:  cd ${path.relative(process.cwd(), dir) || '.'} && ${command}`,
     );
     return false;
   }
@@ -151,7 +175,7 @@ const selected = named.length > 0 ? named : Object.keys(TARGETS);
 
 let failed = false;
 for (const name of selected) {
-  const { dir, label } = TARGETS[name];
+  const { dir, label, ignoreScripts } = TARGETS[name];
   if (!fs.existsSync(path.join(dir, 'package.json'))) continue;
 
   const reason = reasonToInstall(dir);
@@ -164,7 +188,7 @@ for (const name of selected) {
   }
 
   say(`${label}: ${reason} — installing now, this runs once.`);
-  if (!install(dir, label)) failed = true;
+  if (!install(dir, label, ignoreScripts)) failed = true;
   else say(`${label}: ready.`);
 }
 

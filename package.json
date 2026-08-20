@@ -67,7 +67,7 @@
     "clean:reports": "rimraf reports test-results",
     "open:lastreport": "npx playwright show-report reports/playwright-report",
     "prepare": "husky",
-    "postinstall": "npm install --prefix probe-lab-app --include=dev",
+    "postinstall": "npm install --prefix probe-lab-app --include=dev --ignore-scripts",
     "preapp:dev": "node scripts/ensure-deps.mjs app",
     "app:dev": "cd probe-lab-app && npm start",
     "preapp:build": "node scripts/ensure-deps.mjs app",
