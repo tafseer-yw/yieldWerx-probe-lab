@@ -17,7 +17,7 @@ export class SampleWafersDialog extends BaseComponent {
   async open(): Promise<void> {
     await this.page
       .getByRole('banner')
-      .getByRole('button', { name: 'Sample wafers', exact: true })
+      .getByRole('button', { name: 'Sample Wafers', exact: true })
       .click();
     await this.root.waitFor();
   }

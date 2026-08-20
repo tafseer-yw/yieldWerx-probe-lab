@@ -115,9 +115,16 @@ screens and remain usable at 200% zoom.
 
 Use language a new learner can understand without domain knowledge.
 
-- Sentence case for page/card titles, navigation, buttons, tabs, fields, statuses,
-  empty states, and help: **Wafer triage**, **Dev track**, **API docs**.
-- Preserve acronyms and identifiers: QA, API, DB, CSV, PROBE, `PROBE-DEV-1`.
+- **Title Case** for the navigation chrome — side-nav items, header action
+  items, and page (topbar) titles: **Upload Data**, **Cluster Detection**,
+  **PROBE Guide**, **API Docs**, **Sample Wafers**. Capitalise the principal
+  words; keep small joining words (and, of, the) lower unless first.
+- **Sentence case** for everything inside a page — card/dialog titles, buttons,
+  guide tabs, field labels, statuses, subtitles, empty states, and help:
+  **Install and run the lab**, **Run report**, **No report run yet**.
+- Preserve acronyms and identifiers, in any casing: QA, API, DB, CSV, PROBE,
+  `PROBE-DEV-1`. In Title Case these stay whole — **PROBE Guide**, **API Docs**,
+  never **Probe Guide**.
 - Uppercase is a rendering effect only for kickers, tiny system labels, and table
   headings. Never uppercase an action label.
 - Prefer “groups of failed dies that touch” over “contiguous components.”

@@ -51,7 +51,7 @@ Given('the QA user is signed in', async ({ page, loginPage, config }) => {
 });
 
 When('the QA user uploads the sample wafer CSV', async ({ page }) => {
-  await page.getByRole('link', { name: 'Upload data', exact: true }).click();
+  await page.getByRole('link', { name: 'Upload Data', exact: true }).click();
   await page.waitForURL('**/upload');
   await page.getByLabel('Device').selectOption('PROBE-DEV-1');
   await expect(
@@ -116,7 +116,7 @@ Then('the wafer detail shows yield {int}', async ({ page }, yieldPct: number) =>
 
 When('the QA user opens wafer triage for this wafer', async ({ page }) => {
   const analysisNav = page.getByRole('navigation', { name: 'Analysis' });
-  await expect(analysisNav.getByRole('link', { name: /Wafer triage/u })).toBeVisible();
+  await expect(analysisNav.getByRole('link', { name: /Wafer Triage/u })).toBeVisible();
   await page.getByRole('button', { name: 'Triage wafer' }).click();
   await page.waitForURL('**/triage');
 });
@@ -134,7 +134,7 @@ Then('wafer triage reports no close match with supporting analytics', async ({ p
   await expect(page.getByText('HB 2')).toBeVisible();
   await expect(result).toContainText('not a root-cause diagnosis');
 
-  const explainerButton = page.getByRole('button', { name: 'About Wafer triage' });
+  const explainerButton = page.getByRole('button', { name: 'About Wafer Triage' });
   await explainerButton.click();
   const explainer = page.getByRole('note');
   await expect(explainer.getByText('What it is', { exact: true })).toBeVisible();
@@ -180,7 +180,7 @@ When(
   'the QA user runs cluster detection with 4-way adjacency and minimum {int} connected dies',
   async ({ page, scenarioState }, minimum: number) => {
     const seq = scenarioState.get('waferSequence') as number;
-    await page.getByRole('link', { name: 'Cluster detection', exact: true }).click();
+    await page.getByRole('link', { name: 'Cluster Detection', exact: true }).click();
     await page.waitForURL('**/detection');
     await page.getByLabel('Wafer sequence').fill(String(seq));
     await page.getByLabel('How dies touch').selectOption('4-way');
@@ -193,7 +193,7 @@ Then('the cluster detection reports {int} cluster', async ({ page }, count: numb
   const label = count === 1 ? `${count} cluster` : `${count} clusters`;
   await expect(page.getByText(label)).toBeVisible({ timeout: 10_000 });
 
-  await page.getByRole('button', { name: 'About Cluster detection' }).click();
+  await page.getByRole('button', { name: 'About Cluster Detection' }).click();
   const explainer = page.getByRole('note');
   await expect(explainer.getByText('How it works', { exact: true })).toBeVisible();
   await expect(explainer.getByText('Cluster detection algorithm', { exact: true })).toBeVisible();
@@ -221,7 +221,7 @@ Then('the cluster detection reports a cluster of {int} dies', async ({ page }, d
 
 When('the QA user runs the bin pareto report for failed bins', async ({ page, scenarioState }) => {
   const seq = scenarioState.get('waferSequence') as number;
-  await page.getByRole('link', { name: 'Bin pareto', exact: true }).click();
+  await page.getByRole('link', { name: 'Bin Pareto', exact: true }).click();
   await page.waitForURL('**/reports/bin-pareto');
   await page.getByLabel('Wafer sequence').fill(String(seq));
   await page.getByRole('button', { name: 'Run report' }).click();
@@ -236,7 +236,7 @@ Then('the bin pareto reports the failed bins', async ({ page }) => {
   await expect(bin3).toContainText('4.00%');
   await expect(page.getByRole('row')).toHaveCount(3);
 
-  await page.getByRole('button', { name: 'About Bin pareto' }).click();
+  await page.getByRole('button', { name: 'About Bin Pareto' }).click();
   const explainer = page.getByRole('note');
   await expect(explainer.getByText('How it works', { exact: true })).toBeVisible();
   await expect(explainer.getByText('Why it helps (ROI)', { exact: true })).toBeVisible();
@@ -245,7 +245,7 @@ Then('the bin pareto reports the failed bins', async ({ page }) => {
 });
 
 When('the QA user opens the PROBE guide', async ({ page }) => {
-  await page.getByRole('link', { name: 'PROBE guide', exact: true }).click();
+  await page.getByRole('link', { name: 'PROBE Guide', exact: true }).click();
   await page.waitForURL('**/guide');
 });
 
@@ -288,6 +288,17 @@ Then(
         '/yw:probe-spec bin-pareto-export docs/PRDs/bin-pareto-export/prd-signed-off.md',
       ),
     ).toBeVisible();
+
+    /* Skills & Agents is the 7th guide tab (moved in from the header): the
+       searchable reference with source / preview / explain toggles. */
+    await page.getByRole('button', { name: /Skills & agents/iu }).click();
+    await page.getByPlaceholder('Search skills and agents').fill('probe-spec');
+    /* The list button's name is "probe-spec <track>", so match on substring. */
+    await page
+      .getByRole('button', { name: /probe-spec/ })
+      .first()
+      .click();
+    await expect(page.getByRole('button', { name: 'Markdown' })).toBeVisible();
   },
 );
 
@@ -303,9 +314,9 @@ Then('sample wafers is an admin header action', async ({ page, config }) => {
   await page.waitForURL('**/dashboard');
 
   const header = page.getByRole('banner');
-  await expect(header.getByRole('button', { name: 'Sample wafers', exact: true })).toBeVisible();
+  await expect(header.getByRole('button', { name: 'Sample Wafers', exact: true })).toBeVisible();
   await header.getByRole('button', { name: /admin/u }).click();
-  await expect(page.getByRole('menuitem', { name: 'Sample wafers' })).toHaveCount(0);
+  await expect(page.getByRole('menuitem', { name: 'Sample Wafers' })).toHaveCount(0);
   await expect(page.getByRole('menuitem', { name: 'Sign out' })).toBeVisible();
 });
 
@@ -318,9 +329,9 @@ Then(
     );
     await page
       .getByRole('navigation', { name: 'Data' })
-      .getByRole('link', { name: 'Upload history', exact: true })
+      .getByRole('link', { name: 'Upload History', exact: true })
       .click();
-    await expect(page).toHaveTitle('Upload history · yieldWerx PROBE Lab');
+    await expect(page).toHaveTitle('Upload History · yieldWerx PROBE Lab');
     const statusOptions = page.getByLabel('Status').getByRole('option');
     await expect(statusOptions).toHaveText([
       'All statuses',
@@ -329,7 +340,7 @@ Then(
       'Rejected',
     ]);
 
-    await page.getByRole('link', { name: 'Cluster detection', exact: true }).click();
+    await page.getByRole('link', { name: 'Cluster Detection', exact: true }).click();
     await expect(page.getByLabel('How dies touch').getByRole('option')).toHaveText([
       'Sides only (4-way)',
       'Sides and corners (8-way)',
@@ -338,7 +349,7 @@ Then(
     await expect(page.getByLabel('Wafer sequence')).toHaveAccessibleDescription(
       'From the Wafers screen',
     );
-    await page.getByRole('link', { name: 'Bin pareto', exact: true }).click();
+    await page.getByRole('link', { name: 'Bin Pareto', exact: true }).click();
     await expect(page.getByLabel('Bins to show')).toBeVisible();
     await expect(page.getByLabel('Sort by').getByRole('option')).toHaveText([
       'Most dies first',
@@ -376,7 +387,7 @@ Then('a viewer cannot open the upload workflow', async ({ page, config }) => {
       .getByRole('navigation', { name: 'Overview' })
       .getByRole('link', { name: 'Dashboard', exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Upload data', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Upload Data', exact: true })).toHaveCount(0);
   await page.goto('/upload');
   await page.waitForURL('**/dashboard');
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
@@ -409,7 +420,7 @@ When('the admin loads every sample wafer', async ({ page, config }) => {
 
   await page
     .getByRole('banner')
-    .getByRole('button', { name: 'Sample wafers', exact: true })
+    .getByRole('button', { name: 'Sample Wafers', exact: true })
     .click();
   const popup = samplePopup(page);
   await expect(popup).toBeVisible();
@@ -429,7 +440,7 @@ When('the admin reopens the sample wafers popup', async ({ page }) => {
   await expect(samplePopup(page)).toHaveCount(0);
   await page
     .getByRole('banner')
-    .getByRole('button', { name: 'Sample wafers', exact: true })
+    .getByRole('button', { name: 'Sample Wafers', exact: true })
     .click();
   await expect(samplePopup(page)).toBeVisible();
 });

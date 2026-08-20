@@ -36,7 +36,6 @@ import { BinParetoPage } from './BinParetoPage.js';
 import { SampleDataDialog } from './SampleDataDialog.js';
 import { ProbeGuidePage } from './ProbeGuidePage.js';
 import { AssessmentsPage } from './AssessmentsPage.js';
-import { SkillsPage } from './SkillsPage.js';
 import { WaferTriagePage } from './WaferTriagePage.js';
 
 const NAV_STATE_KEY = 'yw.nav-collapsed';
@@ -56,17 +55,17 @@ const navGroups: Array<{ heading: string; items: NavEntry[] }> = [
   {
     heading: 'Data',
     items: [
-      { to: '/upload', label: 'Upload data', icon: 'upload' },
-      { to: '/uploads', label: 'Upload history', icon: 'history' },
+      { to: '/upload', label: 'Upload Data', icon: 'upload' },
+      { to: '/uploads', label: 'Upload History', icon: 'history' },
       { to: '/wafers', label: 'Wafers', icon: 'wafer' },
     ],
   },
   {
     heading: 'Analysis',
     items: [
-      { to: '/triage', label: 'Wafer triage', icon: 'target' },
-      { to: '/detection', label: 'Cluster detection', icon: 'scan' },
-      { to: '/reports/bin-pareto', label: 'Bin pareto', icon: 'chart' },
+      { to: '/triage', label: 'Wafer Triage', icon: 'target' },
+      { to: '/detection', label: 'Cluster Detection', icon: 'scan' },
+      { to: '/reports/bin-pareto', label: 'Bin Pareto', icon: 'chart' },
     ],
   },
 ];
@@ -85,17 +84,17 @@ const pageTitles: Array<{
   },
   {
     match: (path) => path.startsWith('/upload') && !path.startsWith('/uploads'),
-    title: 'Upload data',
+    title: 'Upload Data',
     subtitle: 'Check and save a wafer CSV',
   },
   {
     match: (path) => path.startsWith('/uploads'),
-    title: 'Upload history',
+    title: 'Upload History',
     subtitle: 'Every upload with its status and validation outcome',
   },
   {
     match: (path) => /^\/wafers\/.+/u.test(path),
-    title: 'Wafer detail',
+    title: 'Wafer Detail',
     subtitle: 'Die map and hard bin distribution',
   },
   {
@@ -105,19 +104,19 @@ const pageTitles: Array<{
   },
   {
     match: (path) => path.startsWith('/triage'),
-    title: 'Wafer triage',
+    title: 'Wafer Triage',
     subtitle: 'Choose which wafer problem to check first',
     analysisHelp: analysisHelp.waferTriage,
   },
   {
     match: (path) => path.startsWith('/detection'),
-    title: 'Cluster detection',
+    title: 'Cluster Detection',
     subtitle: 'Groups of failing dies that touch',
     analysisHelp: analysisHelp.clusterDetection,
   },
   {
     match: (path) => path.startsWith('/guide'),
-    title: 'PROBE guide',
+    title: 'PROBE Guide',
     subtitle: 'Set up the lab, install the plugins, and follow your practice track',
   },
   {
@@ -126,13 +125,8 @@ const pageTitles: Array<{
     subtitle: 'Fifteen self-paced assessments per track, with points and levels',
   },
   {
-    match: (path) => path.startsWith('/skills'),
-    title: 'Skills & agents',
-    subtitle: 'Every PROBE skill and agent — source, preview, and how to harden it',
-  },
-  {
     match: (path) => path.startsWith('/reports'),
-    title: 'Bin pareto',
+    title: 'Bin Pareto',
     subtitle: 'Largest bin losses with a running total',
     analysisHelp: analysisHelp.binPareto,
   },
@@ -196,7 +190,7 @@ export function App(): ReactElement {
           <Route path="/reports/bin-pareto" element={<BinParetoPage />} />
           <Route path="/guide" element={<ProbeGuidePage />} />
           <Route path="/assessments" element={<AssessmentsPage />} />
-          <Route path="/skills" element={<SkillsPage />} />
+          <Route path="/skills" element={<Navigate to="/guide?section=skills" replace />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>
@@ -376,9 +370,9 @@ function Layout(): ReactElement {
             <p>{page?.subtitle}</p>
           </div>
           <div className="topbar-actions">
-            <Link className="btn btn-ghost btn-sm" to="/guide" aria-label="PROBE guide">
+            <Link className="btn btn-ghost btn-sm" to="/guide" aria-label="PROBE Guide">
               <Icon name="help" size={14} />
-              <span className="topbar-action-label">PROBE guide</span>
+              <span className="topbar-action-label">PROBE Guide</span>
             </Link>
             <span className="topbar-divider" aria-hidden="true">
               |
@@ -390,22 +384,15 @@ function Layout(): ReactElement {
             <span className="topbar-divider" aria-hidden="true">
               |
             </span>
-            <Link className="btn btn-ghost btn-sm" to="/skills" aria-label="Skills and agents">
-              <Icon name="clipboard" size={14} />
-              <span className="topbar-action-label">Skills</span>
-            </Link>
-            <span className="topbar-divider" aria-hidden="true">
-              |
-            </span>
             <a
               className="btn btn-ghost btn-sm"
               href="/docs"
               target="_blank"
               rel="noreferrer"
-              aria-label="API docs"
+              aria-label="API Docs"
             >
               <Icon name="file" size={14} />
-              <span className="topbar-action-label">API docs</span>
+              <span className="topbar-action-label">API Docs</span>
             </a>
             {session?.user.role === 'admin' ? (
               <>
@@ -415,11 +402,11 @@ function Layout(): ReactElement {
                 <button
                   type="button"
                   className="btn btn-ghost btn-sm"
-                  aria-label="Sample wafers"
+                  aria-label="Sample Wafers"
                   onClick={() => setSampleOpen(true)}
                 >
                   <Icon name="wafer" size={14} />
-                  <span className="topbar-action-label">Sample wafers</span>
+                  <span className="topbar-action-label">Sample Wafers</span>
                 </button>
               </>
             ) : null}
