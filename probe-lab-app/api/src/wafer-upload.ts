@@ -11,6 +11,8 @@
  * same span and a die keeps the coordinates its source file recorded.
  */
 
+import type { PositiveXDirection, PositiveYDirection } from '../../shared/contracts.js';
+
 export const maximumWaferRows = 50_000;
 
 /** STDF WAFER_ID runs well past the 25 the CSV format originally allowed. */
@@ -57,6 +59,13 @@ export type UploadParseResult =
       lot: string;
       wafer: number;
       notchAngle: 0 | 90 | 180 | 270 | null;
+      /*
+       * The coordinate frame the file declared, or null where it declared none.
+       * The wafer map needs it to place a die on the correct side of the wafer,
+       * so it is carried rather than dropped — see DieCoordinateFrame.
+       */
+      positiveX: PositiveXDirection | null;
+      positiveY: PositiveYDirection | null;
       acceptedDies: ParsedDie[];
       errors: UploadValidationError[];
     }

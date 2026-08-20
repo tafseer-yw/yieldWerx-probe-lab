@@ -145,7 +145,10 @@ export function WaferDetailPage(): ReactElement {
                 help={help.waferMap}
               />
               <CardBody>
-                <WaferMap dies={wafer.dies} />
+                <WaferMap
+                  dies={wafer.dies}
+                  frame={{ positiveX: wafer.positiveX, positiveY: wafer.positiveY }}
+                />
               </CardBody>
             </Card>
 

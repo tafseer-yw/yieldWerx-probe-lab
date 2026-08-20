@@ -99,6 +99,9 @@ CREATE TABLE IF NOT EXISTS wafer
     pass_count       INTEGER NOT NULL,
     yield            REAL NOT NULL,
     finish_time      TEXT NOT NULL,
+    -- The coordinate frame the source file declared; NULL where it declared none.
+    positive_x       TEXT CHECK (positive_x IS NULL OR positive_x IN ('left', 'right')),
+    positive_y       TEXT CHECK (positive_y IS NULL OR positive_y IN ('up', 'down')),
     UNIQUE (lot_id, wafer_number),
     UNIQUE (upload_id),
     CHECK (wafer_number BETWEEN 1 AND 9999),

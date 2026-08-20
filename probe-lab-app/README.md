@@ -188,15 +188,21 @@ clusters at all.
   experience center. **ATDF wafer results are read**, but only the records a wafer map needs —
   the parametric `PTR` measurements are counted and discarded.
 - Cluster detection, bin-pareto reporting, and Wafer triage are deliberately compact practice implementations.
-- No coordinate-frame / observation-election complexity on the wafer detail —
-  dies keep `x, y, hardBin, softBin, passFailFlag`.
+- No observation-election complexity on the wafer detail — dies keep
+  `x, y, hardBin, softBin, passFailFlag`. The one piece of coordinate-frame
+  metadata that is read is the axis direction: ATDF's `WCR` `POS_X`/`POS_Y`
+  lands on the wafer as `positiveX`/`positiveY`, because a file declaring
+  positive X to the left is mirrored by a map that ignores it. Map bounds,
+  flip flags and die-ID mapping stay out of scope.
 - SQLite (file) instead of SQL Server — the store layer is isolated so a future
   swap to `mssql` would touch only `store.ts`.
 - Wafer map is a **round wafer drawn on a `<canvas>`** (disc + notch + die
   lattice). Because a canvas has no per-die DOM, the component also renders a
   visually-hidden mirror — `data-testid="wafer-map-data"`, one element per die
   carrying `data-x`/`data-y`/`data-hardbin`/`data-softbin`/`data-passfail`
-  (+`data-cluster` when a detection highlights it). Assert the **data model**
+  (+`data-cluster` when a detection highlights it) and the `data-col`/`data-row`
+  it was drawn at. The chart container states the frame those positions used —
+  `data-positive-x`, `data-positive-y`, `data-frame`. Assert the **data model**
   there, never pixels. The bin pareto chart is canvas too, with the data table
   beside it as its readable view.
 

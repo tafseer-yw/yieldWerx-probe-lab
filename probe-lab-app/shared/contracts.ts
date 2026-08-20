@@ -111,6 +111,24 @@ export interface DieRecord {
   passFailFlag: 'P' | 'F';
 }
 
+/*
+ * Which way the source file says its die coordinates grow.
+ *
+ * ATDF states it in the WCR record (POS_X = L or R, POS_Y = U or D); a CSV has
+ * no way to state it at all. `null` therefore means undeclared, which is not
+ * the same as a declared `right`/`down` — a wafer map draws an undeclared frame
+ * the way it always has, and says that it assumed it.
+ */
+export const positiveXDirections = ['left', 'right'] as const;
+export type PositiveXDirection = (typeof positiveXDirections)[number];
+export const positiveYDirections = ['up', 'down'] as const;
+export type PositiveYDirection = (typeof positiveYDirections)[number];
+
+export interface DieCoordinateFrame {
+  positiveX: PositiveXDirection | null;
+  positiveY: PositiveYDirection | null;
+}
+
 export interface WaferSummary {
   waferSequence: number;
   lot: string;
@@ -123,7 +141,7 @@ export interface WaferSummary {
   finishTime: string;
 }
 
-export interface WaferDetail extends WaferSummary {
+export interface WaferDetail extends WaferSummary, DieCoordinateFrame {
   uploadId: string;
   dies: DieRecord[];
 }

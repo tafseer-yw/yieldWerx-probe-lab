@@ -196,7 +196,11 @@ export function ClusterDetectionPage(): ReactElement {
                 }
               />
               <CardBody>
-                <WaferMap dies={wafer.dies} highlight={highlight} />
+                <WaferMap
+                  dies={wafer.dies}
+                  frame={{ positiveX: wafer.positiveX, positiveY: wafer.positiveY }}
+                  highlight={highlight}
+                />
               </CardBody>
             </Card>
 

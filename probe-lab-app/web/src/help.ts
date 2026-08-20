@@ -156,6 +156,11 @@ export const help = {
     why: 'Pass / fail answers "how much am I losing". A bin view answers "what is it failing for". Hard bin is the tester’s own verdict and never changes; Soft bin is the refined one that later analysis can rewrite, so the two can disagree on the same die.',
     how: 'Start on Pass / fail for yield at a glance, then switch to a bin view to see the failure mix — the darkest red is the most common failing bin, and the legend lists every bin with its die count.',
   },
+  coordinateFrame: {
+    what: 'Which way the die coordinates grow on screen: the arrows show the direction of increasing X and increasing Y.',
+    why: 'A tester decides its own convention, and many write positive X to the left. Drawing that file left-to-right mirrors the wafer, so an edge failure appears on the wrong side — the numbers all still look right.',
+    how: 'An ATDF states the frame in its WCR record and the map follows it. A CSV cannot state one, so the map assumes positive X to the right and positive Y downward, and marks the frame as assumed.',
+  },
   waferMap: {
     what: 'The wafer drawn as it is laid out: one square per die site, in its real X and Y position.',
     why: 'Where failures sit matters as much as how many there are. A tight group points at a physical cause; scattered failures usually do not.',

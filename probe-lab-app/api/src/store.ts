@@ -4,6 +4,7 @@ import Database from 'better-sqlite3';
 
 import {
   userRoles,
+  type DieCoordinateFrame,
   type DieRecord,
   type ReferenceValue,
   type UploadErrorPage,
@@ -14,6 +15,7 @@ import {
   type WaferPage,
   type WaferSummary,
 } from '../../shared/contracts.js';
+import { parseWaferAtdf } from './wafer-atdf.js';
 import type { UploadParseResult, UploadValidationError, ParsedDie } from './wafer-upload.js';
 
 /** A sample upload that is currently in the database. */
@@ -138,6 +140,8 @@ interface WaferRow {
   yield: number;
   finish_time: string;
   upload_id: string;
+  positive_x: string | null;
+  positive_y: string | null;
 }
 
 interface DieRow {
@@ -193,6 +197,17 @@ function toWaferSummary(row: WaferRow): WaferSummary {
   };
 }
 
+/**
+ * A stored frame is text, so it is validated on the way out rather than cast:
+ * a row written before the columns existed, or by hand, reads as undeclared.
+ */
+function toCoordinateFrame(row: WaferRow): DieCoordinateFrame {
+  return {
+    positiveX: row.positive_x === 'left' || row.positive_x === 'right' ? row.positive_x : null,
+    positiveY: row.positive_y === 'up' || row.positive_y === 'down' ? row.positive_y : null,
+  };
+}
+
 function toDie(row: DieRow): DieRecord {
   return {
     dieId: row.die_id,
@@ -222,6 +237,24 @@ export class SqliteApplicationStore implements ApplicationStore {
     if (columns.length > 0 && !columns.some((column) => column.name === 'is_sample')) {
       this.db.exec('ALTER TABLE upload ADD COLUMN is_sample INTEGER NOT NULL DEFAULT 0');
     }
+    /* A wafer landed before the coordinate frame was carried has no columns to
+       read it from, and its map would 500 rather than fall back. Both stay
+       nullable, so existing rows read as "the file declared no frame" — which
+       is what the app knew about them. */
+    const waferColumns = this.db.prepare('PRAGMA table_info(wafer)').all() as Array<{
+      name: string;
+    }>;
+    if (waferColumns.length > 0 && !waferColumns.some((column) => column.name === 'positive_x')) {
+      this.db.exec(
+        `ALTER TABLE wafer ADD COLUMN positive_x TEXT
+           CHECK (positive_x IS NULL OR positive_x IN ('left', 'right'))`,
+      );
+      this.db.exec(
+        `ALTER TABLE wafer ADD COLUMN positive_y TEXT
+           CHECK (positive_y IS NULL OR positive_y IN ('up', 'down'))`,
+      );
+      this.backfillCoordinateFrames();
+    }
     this.assertWaferRangesAreCurrent();
     /* A database created before assessments existed, opened by `npm run dev`
        (which skips setup), would otherwise 500 on the first assessments read. */
@@ -246,6 +279,39 @@ export class SqliteApplicationStore implements ApplicationStore {
       !resultColumns.some((column) => column.name === 'evidence_url')
     ) {
       this.db.exec('ALTER TABLE assessment_result ADD COLUMN evidence_url TEXT');
+    }
+  }
+
+  /**
+   * A wafer that landed before the frame was carried would keep drawing
+   * mirrored until somebody re-uploaded its file — which is the defect, not a
+   * fix. The upload's bytes are retained, so the frame is recovered from the
+   * file that landed it: the ATDF reader refuses anything that is not an ATDF,
+   * so a CSV upload simply stays undeclared.
+   *
+   * Runs once, in the same step that adds the columns. A single unreadable blob
+   * must not stop the application from opening, so each is attempted alone.
+   */
+  private backfillCoordinateFrames(): void {
+    const rows = this.db
+      .prepare(
+        `SELECT w.wafer_sequence, u.source_data
+         FROM wafer w JOIN upload u ON u.upload_id = w.upload_id`,
+      )
+      .all() as Array<{ wafer_sequence: number; source_data: Buffer }>;
+    const update = this.db.prepare(
+      'UPDATE wafer SET positive_x = ?, positive_y = ? WHERE wafer_sequence = ?',
+    );
+    for (const row of rows) {
+      try {
+        const parsed = parseWaferAtdf(row.source_data);
+        if (parsed.kind !== 'ready') continue;
+        if (parsed.positiveX === null && parsed.positiveY === null) continue;
+        update.run(parsed.positiveX, parsed.positiveY, row.wafer_sequence);
+      } catch {
+        // An unreadable stored file leaves that wafer undeclared, as before.
+        continue;
+      }
     }
   }
 
@@ -461,7 +527,8 @@ export class SqliteApplicationStore implements ApplicationStore {
       const info = this.db
         .prepare(
           `INSERT INTO wafer (lot_id, wafer_number, test_program_id, upload_id, part_count,
-             pass_count, yield, finish_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+             pass_count, yield, finish_time, positive_x, positive_y)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           lotId,
@@ -472,6 +539,8 @@ export class SqliteApplicationStore implements ApplicationStore {
           passCount,
           yieldPct,
           now,
+          parsed.positiveX,
+          parsed.positiveY,
         );
       const waferSequence = Number(info.lastInsertRowid);
 
@@ -681,7 +750,7 @@ export class SqliteApplicationStore implements ApplicationStore {
       .prepare(
         `SELECT w.wafer_sequence, l.lot_code, w.wafer_number, d.code AS device_code,
            p.code AS test_program_code, w.part_count, w.pass_count, w.yield, w.finish_time,
-           w.upload_id
+           w.upload_id, w.positive_x, w.positive_y
          FROM wafer w
          JOIN lot l ON l.lot_id = w.lot_id
          JOIN device d ON d.device_id = l.device_id
@@ -698,7 +767,12 @@ export class SqliteApplicationStore implements ApplicationStore {
       )
       .all(waferSequence) as DieRow[];
 
-    return { ...toWaferSummary(row), uploadId: row.upload_id, dies: dies.map(toDie) };
+    return {
+      ...toWaferSummary(row),
+      ...toCoordinateFrame(row),
+      uploadId: row.upload_id,
+      dies: dies.map(toDie),
+    };
   }
 
   /**
