@@ -2,8 +2,10 @@
  * Wafer CSV parser — faithful port of the real app's wafer-upload domain module,
  * trimmed to the practice scope: header detection (with aliases), optional
  * notch metadata, per-row validation, duplicate detection, and lot/wafer
- * consistency. The coordinate-frame metadata (positiveX/flipX/map bounds) is
- * intentionally dropped — the practice wafer detail does not expose it.
+ * consistency. This format has no way to declare a coordinate frame, so it
+ * reports both axes as undeclared and the wafer map draws them the way it
+ * always has — smallest coordinate first. Map bounds and flip metadata remain
+ * out of scope.
  *
  * The validation error codes are kept identical to the real app so PROBE
  * scenarios transfer: MISSING_VALUE, NOT_AN_INTEGER, OUT_OF_RANGE, BAD_FLAG,
@@ -450,6 +452,8 @@ export function parseWaferCsv(input: string | Buffer): UploadParseResult {
     lot: targetLot,
     wafer: targetWafer,
     notchAngle: parsedNotch,
+    positiveX: null,
+    positiveY: null,
     acceptedDies,
     errors,
   };

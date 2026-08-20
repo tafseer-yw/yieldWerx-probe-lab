@@ -1,4 +1,5 @@
 import type {
+  DieCoordinateFrame,
   DieRecord,
   SignatureMatchCandidate,
   SignatureMatchResponse,
@@ -290,11 +291,35 @@ function evidenceFor(signature: WaferSignature): string[] {
   return evidence.slice(0, 3);
 }
 
+/**
+ * The quadrant features below name halves of the wafer — upper left, lower
+ * right — and the references they are scored against are built from CSV
+ * practice wafers, which declare no frame and are therefore read as
+ * right/down. A wafer whose file declares positive X to the left is the mirror
+ * image of that convention, so its coordinates are reflected into it first.
+ *
+ * Without this, "upper left" describes the file's convention rather than the
+ * wafer, and the same physical pattern scores differently depending on which
+ * tester wrote it. Reflection is exact and preserves die spacing, so cluster
+ * and radial features are unchanged by it.
+ */
+function inReferenceFrame(dies: SignatureDie[], frame?: DieCoordinateFrame): SignatureDie[] {
+  const reflectX = frame?.positiveX === 'left';
+  const reflectY = frame?.positiveY === 'up';
+  if (!reflectX && !reflectY) return dies;
+  return dies.map((die) => ({
+    ...die,
+    x: reflectX ? -die.x : die.x,
+    y: reflectY ? -die.y : die.y,
+  }));
+}
+
 export function matchWaferSignature(
   waferSequence: number,
   dies: SignatureDie[],
+  frame?: DieCoordinateFrame,
 ): SignatureMatchResponse {
-  const signature = extractWaferSignature(dies);
+  const signature = extractWaferSignature(inReferenceFrame(dies, frame));
   const knownReferences = references();
   const base = {
     waferSequence,

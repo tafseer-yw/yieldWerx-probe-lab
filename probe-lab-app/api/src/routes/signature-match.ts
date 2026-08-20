@@ -117,7 +117,10 @@ export async function registerSignatureMatchRoutes(
     async (request) => {
       const wafer = await store.getWafer(request.params.waferSequence);
       if (!wafer) throw apiError(404, 'WAFER_NOT_FOUND', 'Wafer was not found.');
-      return matchWaferSignature(wafer.waferSequence, wafer.dies);
+      return matchWaferSignature(wafer.waferSequence, wafer.dies, {
+        positiveX: wafer.positiveX,
+        positiveY: wafer.positiveY,
+      });
     },
   );
 }

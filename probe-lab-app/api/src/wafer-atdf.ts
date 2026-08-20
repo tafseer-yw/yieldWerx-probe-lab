@@ -9,6 +9,7 @@
  *
  *   MIR  field 1  → lot code
  *   WIR  field 4  → wafer id, confirmed against WRR field 4 when present
+ *   WCR  fields 2,3 → which way positive X and positive Y grow
  *   HBR/SBR       → bin number, its pass/fail disposition, and its name
  *   PRR           → one die: pass/fail flag, hard bin, soft bin, X, Y
  *
@@ -21,6 +22,7 @@
  * Validation error codes are shared with the CSV reader so PROBE scenarios and
  * the validation report treat both formats identically.
  */
+import type { DieCoordinateFrame } from '../../shared/contracts.js';
 import {
   dieCoordinateRange,
   maximumWaferRows,
@@ -134,6 +136,28 @@ function readBinDefinitions(
     });
   }
   return definitions;
+}
+
+/**
+ * WCR carries the wafer's coordinate frame. ATDF orders the record as
+ * `WF_FLAT|POS_X|POS_Y|WAFR_SIZ|DIE_HT|DIE_WID|WF_UNITS`, so the two axis
+ * directions are fields 2 and 3: POS_X is `L` or `R`, POS_Y is `U` or `D`.
+ *
+ * Anything else — a blank field, an unexpected value, no WCR at all — leaves
+ * that axis undeclared rather than assumed. Field 1 (WF_FLAT) is deliberately
+ * not consulted: it also carries L/R/U/D, so guessing which field holds the
+ * frame would read the notch position as an axis direction. The notch itself
+ * stays out of scope.
+ */
+function readCoordinateFrame(records: AtdfRecord[]): DieCoordinateFrame {
+  const record = records.find((candidate) => candidate.type === 'WCR');
+  if (!record) return { positiveX: null, positiveY: null };
+  const positiveXCode = field(record, 1).toUpperCase();
+  const positiveYCode = field(record, 2).toUpperCase();
+  return {
+    positiveX: positiveXCode === 'L' ? 'left' : positiveXCode === 'R' ? 'right' : null,
+    positiveY: positiveYCode === 'U' ? 'up' : positiveYCode === 'D' ? 'down' : null,
+  };
 }
 
 export function parseWaferAtdf(input: string | Buffer): UploadParseResult {
@@ -340,8 +364,9 @@ export function parseWaferAtdf(input: string | Buffer): UploadParseResult {
     rowsRead: partRecords.length,
     lot,
     wafer,
-    // ATDF carries wafer flat/notch orientation in WCR, not an angle this app models.
+    // ATDF states the notch position in WCR's WF_FLAT field, not as an angle.
     notchAngle: null,
+    ...readCoordinateFrame(records),
     acceptedDies,
     errors,
   };

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent, ReactElement } from 'react';
 
-import type { DieRecord } from '../../shared/contracts.js';
+import type { DieCoordinateFrame, DieRecord } from '../../shared/contracts.js';
 import {
   dieLattice,
-  latticeColumn,
-  latticeRow,
+  displayColumn,
+  displayRow,
   type DieLattice,
 } from '../../shared/die-lattice.js';
 import { help } from './help.js';
@@ -34,18 +34,32 @@ import { HelpDot } from './ui.js';
  * and Hard-Bin Wafer Map report types; only the bin names here are product
  * terminology.
  *
+ * Orientation: which way the coordinates grow is the source file's statement,
+ * not this component's assumption. ATDF declares it in WCR; a CSV declares
+ * nothing, and an undeclared frame is drawn smallest-coordinate-first, the way
+ * it always has been. Ignoring a declared `positiveX: 'left'` mirrored the
+ * whole map — a rim failure appeared on the wrong side of the wafer — so the
+ * frame is drawn from `displayColumn`/`displayRow` and stated in the toolbar.
+ *
  * Testability: a canvas has no per-die DOM, so the component also renders a
  * visually-hidden mirror carrying one element per die with the
  * data-x / data-y / data-hardbin / data-softbin / data-passfail / data-cluster
  * contract the QA suite asserts against (`.claude/rules/locator-policy.md`).
+ * Each die also carries the data-col / data-row it was drawn at, and the chart
+ * container carries the frame those positions were computed in — a mirrored map
+ * is otherwise unassertable, because every coordinate is still correct.
  */
 
 interface WaferMapProps {
   dies: DieRecord[];
+  /** The frame the source file declared; undeclared axes fall back to right/down. */
+  frame?: DieCoordinateFrame;
   highlight?: ReadonlySet<string>;
   maxCellSize?: number;
   maxHeight?: number;
 }
+
+const UNDECLARED_FRAME: DieCoordinateFrame = { positiveX: null, positiveY: null };
 
 type ColourMode = 'flag' | 'hard' | 'soft';
 
@@ -60,7 +74,9 @@ interface WaferModel {
   rows: number;
   /** Raw coordinates are lattice positions whose step is not always 1. */
   lattice: DieLattice;
-  /** Keyed by lattice cell `column:row`, not by raw coordinate. */
+  /** The frame every display position in this model was computed in. */
+  frame: DieCoordinateFrame;
+  /** Keyed by drawn cell `column:row`, not by raw coordinate. */
   byKey: Map<string, DieRecord>;
   passCount: number;
   failCount: number;
@@ -86,12 +102,13 @@ const PASS_RAMP_LIGHT = ['#9ec5f4', '#2a78d6'];
 const PASS_RAMP_DARK = ['#86b6ef', '#3987e5'];
 const FAIL_RAMP = ['#a32424', '#c73434', '#d95050', '#e57070', '#ef9494', '#f6b8b8'];
 
-function buildModel(dies: DieRecord[]): WaferModel {
+function buildModel(dies: DieRecord[], frame: DieCoordinateFrame): WaferModel {
   if (dies.length === 0) {
     return {
       cols: 0,
       rows: 0,
       lattice: dieLattice([]),
+      frame,
       byKey: new Map(),
       passCount: 0,
       failCount: 0,
@@ -108,7 +125,7 @@ function buildModel(dies: DieRecord[]): WaferModel {
 
   for (const die of dies) {
     if (die.passFailFlag === 'P') passCount += 1;
-    byKey.set(`${latticeColumn(lattice, die.x)}:${latticeRow(lattice, die.y)}`, die);
+    byKey.set(`${displayColumn(lattice, frame, die.x)}:${displayRow(lattice, frame, die.y)}`, die);
     const hard = hardBins.get(die.hardBin);
     hardBins.set(die.hardBin, {
       count: (hard?.count ?? 0) + 1,
@@ -129,8 +146,8 @@ function buildModel(dies: DieRecord[]): WaferModel {
   const centreY = (rows - 1) / 2;
   let spread = 0;
   for (const die of dies) {
-    const dx = latticeColumn(lattice, die.x) - centreX;
-    const dy = latticeRow(lattice, die.y) - centreY;
+    const dx = displayColumn(lattice, frame, die.x) - centreX;
+    const dy = displayRow(lattice, frame, die.y) - centreY;
     const distance = Math.sqrt(dx * dx + dy * dy);
     if (distance > spread) spread = distance;
   }
@@ -139,6 +156,7 @@ function buildModel(dies: DieRecord[]): WaferModel {
     cols,
     rows,
     lattice,
+    frame,
     byKey,
     passCount,
     failCount: dies.length - passCount,
@@ -198,12 +216,19 @@ function waferOutline(centre: number, radius: number): Path2D {
 
 export function WaferMap({
   dies,
+  frame = UNDECLARED_FRAME,
   highlight,
   maxCellSize = 46,
   maxHeight = 480,
 }: WaferMapProps): ReactElement {
   const theme = useResolvedTheme();
-  const model = useMemo(() => buildModel(dies), [dies]);
+  /* Memoized on the two directions rather than the object, so a caller passing
+     an inline frame does not rebuild the model and redraw on every render. */
+  const { positiveX, positiveY } = frame;
+  const model = useMemo(
+    () => buildModel(dies, { positiveX, positiveY }),
+    [dies, positiveX, positiveY],
+  );
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [available, setAvailable] = useState(0);
@@ -326,8 +351,8 @@ export function WaferMap({
 
     // Measured dies.
     for (const die of model.byKey.values()) {
-      const left = originX + latticeColumn(model.lattice, die.x) * cell;
-      const top = originY + latticeRow(model.lattice, die.y) * cell;
+      const left = originX + displayColumn(model.lattice, model.frame, die.x) * cell;
+      const top = originY + displayRow(model.lattice, model.frame, die.y) * cell;
       const inCluster = highlight?.has(`${die.x}:${die.y}`) === true;
       context.globalAlpha = dimOthers && !inCluster ? 0.24 : 1;
       context.fillStyle =
@@ -395,9 +420,18 @@ export function WaferMap({
   }
 
   const clusterCount = highlight?.size ?? 0;
+  /* The frame actually drawn in: an axis the file left undeclared falls back to
+     the historical direction, and says so rather than looking authoritative. */
+  const drawnPositiveX = positiveX ?? 'right';
+  const drawnPositiveY = positiveY ?? 'down';
+  const frameDeclared = positiveX !== null && positiveY !== null;
+  const frameLabel =
+    `+X ${drawnPositiveX === 'left' ? '←' : '→'} · +Y ${drawnPositiveY === 'up' ? '↑' : '↓'}` +
+    (frameDeclared ? '' : ' (assumed)');
   const description =
     `Wafer die map — ${dies.length} dies, ${model.passCount} passing, ${model.failCount} failing` +
-    (clusterCount > 0 ? `, ${clusterCount} in a detected cluster` : '');
+    (clusterCount > 0 ? `, ${clusterCount} in a detected cluster` : '') +
+    `; positive X grows ${drawnPositiveX}, positive Y grows ${drawnPositiveY}`;
 
   return (
     <div className="wafer-map">
@@ -438,7 +472,14 @@ export function WaferMap({
       </div>
 
       {/* The visual-regression handle: the canvas and only the canvas. */}
-      <div className="wafer-canvas-wrap" ref={wrapRef} data-testid="wafer-map-chart">
+      <div
+        className="wafer-canvas-wrap"
+        ref={wrapRef}
+        data-testid="wafer-map-chart"
+        data-positive-x={drawnPositiveX}
+        data-positive-y={drawnPositiveY}
+        data-frame={frameDeclared ? 'declared' : 'assumed'}
+      >
         <canvas
           ref={canvasRef}
           role="img"
@@ -466,6 +507,11 @@ export function WaferMap({
                 className={`die die-${die.passFailFlag.toLowerCase()}${inCluster ? ' die-cluster' : ''}`}
                 data-x={die.x}
                 data-y={die.y}
+                /* Where the die was drawn, not only what it is: the coordinate
+                   is right even when the map is mirrored, so only the drawn
+                   column and row can catch an orientation regression. */
+                data-col={displayColumn(model.lattice, model.frame, die.x)}
+                data-row={displayRow(model.lattice, model.frame, die.y)}
                 data-hardbin={die.hardBin}
                 data-softbin={die.softBin}
                 data-passfail={die.passFailFlag}
@@ -503,6 +549,12 @@ export function WaferMap({
             <span className="num">({clusterCount.toLocaleString()})</span>
           </span>
         ) : null}
+        {/* Below the canvas on purpose: the map's own approved image is clipped
+            to the container above, so nothing here can move those pixels. */}
+        <span className="legend-item">
+          <span data-testid="wafer-map-frame">{frameLabel}</span>
+          <HelpDot title="Coordinate frame" help={help.coordinateFrame} />
+        </span>
       </div>
     </div>
   );

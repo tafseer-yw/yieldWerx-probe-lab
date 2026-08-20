@@ -1,6 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 
-import type { WaferPage } from '../../../shared/contracts.js';
+import {
+  positiveXDirections,
+  positiveYDirections,
+  type WaferPage,
+} from '../../../shared/contracts.js';
 import { apiError, requireRole } from '../security.js';
 import type { ApplicationStore, WaferListFilter } from '../store.js';
 import { errorResponseSchema } from './schemas.js';
@@ -145,11 +149,24 @@ export async function registerWaferRoutes(
               'yield',
               'finishTime',
               'uploadId',
+              'positiveX',
+              'positiveY',
               'dies',
             ],
             properties: {
               ...waferSummarySchema.properties,
               uploadId: { type: 'string' },
+              /* The coordinate frame the source file declared, so a client can
+                 draw the map the way the file meant it. Null means the file
+                 declared none, which is not the same as declaring right/down. */
+              positiveX: {
+                anyOf: [{ type: 'string', enum: positiveXDirections }, { type: 'null' }],
+                description: 'Direction in which the die X coordinate grows, as the file declared.',
+              },
+              positiveY: {
+                anyOf: [{ type: 'string', enum: positiveYDirections }, { type: 'null' }],
+                description: 'Direction in which the die Y coordinate grows, as the file declared.',
+              },
               dies: { type: 'array', items: dieSchema },
             },
           },

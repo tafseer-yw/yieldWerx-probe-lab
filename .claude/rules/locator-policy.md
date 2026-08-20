@@ -24,5 +24,11 @@ assert against instead — never pixels, and never a screenshot diff:
   `data-x` / `data-y` / `data-hardbin` / `data-softbin` / `data-passfail`, plus
   `data-cluster="true"` on dies a detection highlighted. It is visually hidden
   and `aria-hidden`, so assert attributes (`toHaveAttribute`), not visibility.
+  Each die also carries `data-col` / `data-row` — the grid cell it was **drawn**
+  at — and `getByTestId('wafer-map-chart')` carries `data-positive-x`,
+  `data-positive-y` and `data-frame` (`declared` or `assumed`) for the
+  coordinate frame those positions were computed in. Orientation is only
+  assertable through these: a mirrored map still reports every `data-x`
+  correctly.
 - **Bin pareto chart** → the data table beside it carries every bin's number,
   name, die count, bin % and cumulative %.

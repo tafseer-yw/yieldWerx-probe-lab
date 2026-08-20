@@ -12,6 +12,7 @@
  * Raw coordinates are never rewritten. A die keeps the coordinates its source file
  * recorded, and the lattice is derived on the way in to each calculation.
  */
+import type { DieCoordinateFrame } from './contracts.js';
 
 export interface DieLattice {
   /** Raw coordinate of column 0 / row 0. */
@@ -104,4 +105,24 @@ export function latticeColumn(lattice: DieLattice, x: number): number {
 
 export function latticeRow(lattice: DieLattice, y: number): number {
   return Math.round((y - lattice.originY) / lattice.pitchY);
+}
+
+/*
+ * Lattice indices count up from the smallest coordinate. Where on screen index
+ * 0 belongs is not a property of the wafer — it is whatever the source file
+ * declared. A file stating that positive X grows to the left is drawn with its
+ * largest X in column 0; drawing it from the smallest X instead mirrors the
+ * whole map, which is exactly the defect these two functions exist to prevent.
+ *
+ * An undeclared frame keeps the historical behaviour — smallest coordinate
+ * first — so CSV data and its approved images do not move.
+ */
+export function displayColumn(lattice: DieLattice, frame: DieCoordinateFrame, x: number): number {
+  const column = latticeColumn(lattice, x);
+  return frame.positiveX === 'left' ? lattice.columns - 1 - column : column;
+}
+
+export function displayRow(lattice: DieLattice, frame: DieCoordinateFrame, y: number): number {
+  const row = latticeRow(lattice, y);
+  return frame.positiveY === 'up' ? lattice.rows - 1 - row : row;
 }

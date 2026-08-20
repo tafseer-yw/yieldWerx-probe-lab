@@ -335,7 +335,11 @@ export function WaferTriagePage(): ReactElement {
                 }
               />
               <CardBody>
-                <WaferMap dies={data.wafer.dies} highlight={highlighted} />
+                <WaferMap
+                  dies={data.wafer.dies}
+                  frame={{ positiveX: data.wafer.positiveX, positiveY: data.wafer.positiveY }}
+                  highlight={highlighted}
+                />
               </CardBody>
             </Card>
 
