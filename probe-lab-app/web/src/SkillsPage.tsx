@@ -57,7 +57,14 @@ export function SkillsPage(): ReactElement {
   const skills = filtered.filter((item) => item.kind === 'skill');
   const agents = filtered.filter((item) => item.kind === 'agent');
 
-  const select = (name: string): void => setParams({ name });
+  /* Merge into the existing query rather than replacing it, so selecting a
+     skill inside the PROBE guide keeps ?section=skills. */
+  const select = (name: string): void =>
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set('name', name);
+      return next;
+    });
 
   return (
     <div className="skills-layout">

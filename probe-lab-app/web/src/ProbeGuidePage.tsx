@@ -1,10 +1,12 @@
 import { useState, type ReactElement, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
+import { SkillsPage } from './SkillsPage.js';
+
 import { MarkdownPreview } from './MarkdownPreview.js';
 import { Alert, Badge, Card, CardBody, CardHead, Icon } from './ui.js';
 
-type GuideSection = 'start' | 'database' | 'plugins' | 'cowork' | 'dev' | 'qa';
+type GuideSection = 'start' | 'database' | 'plugins' | 'cowork' | 'dev' | 'qa' | 'skills';
 
 const guideSections: Array<{ id: GuideSection; label: string; hint: string }> = [
   { id: 'start', label: 'Get started', hint: 'Run the lab' },
@@ -13,6 +15,7 @@ const guideSections: Array<{ id: GuideSection; label: string; hint: string }> = 
   { id: 'cowork', label: 'Claude & Cowork', hint: 'Install and invoke' },
   { id: 'dev', label: 'Dev track', hint: 'Build and review' },
   { id: 'qa', label: 'QA track', hint: 'Design and automate' },
+  { id: 'skills', label: 'Skills & agents', hint: 'Every skill and agent' },
 ];
 
 const validSections = new Set<GuideSection>(guideSections.map((section) => section.id));
@@ -1568,6 +1571,7 @@ export function ProbeGuidePage(): ReactElement {
       {active === 'qa' ? (
         <TrackGuide kind="qa" steps={qaSteps} completed={completed} toggle={toggle} />
       ) : null}
+      {active === 'skills' ? <SkillsPage /> : null}
     </>
   );
 }

@@ -102,7 +102,7 @@ const WAFER_SEQUENCE = 'bin-pareto-export:wafer-sequence';
  * which is the failure this step existed to prevent.
  */
 Given('a wafer with several failing bins is loaded', async ({ page, scenarioState }) => {
-  await page.getByRole('link', { name: 'Upload data', exact: true }).click();
+  await page.getByRole('link', { name: 'Upload Data', exact: true }).click();
   await page.waitForURL('**/upload');
   await page.getByLabel('Device').selectOption('PROBE-DEV-1');
   await expect(
@@ -111,11 +111,14 @@ Given('a wafer with several failing bins is loaded', async ({ page, scenarioStat
   await page.getByLabel('Test program').selectOption('PROBE-PGM-1');
 
   const csv = sampleCsvWithUniqueLot();
-  const dataTransfer = await page.evaluateHandle((bytes: number[]) => {
-    const transfer = new DataTransfer();
-    transfer.items.add(new File([new Uint8Array(bytes)], 'wafer.csv', { type: 'text/csv' }));
-    return transfer;
-  }, [...csv]);
+  const dataTransfer = await page.evaluateHandle(
+    (bytes: number[]) => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([new Uint8Array(bytes)], 'wafer.csv', { type: 'text/csv' }));
+      return transfer;
+    },
+    [...csv],
+  );
   await page.getByTestId('upload-dropzone').dispatchEvent('drop', { dataTransfer });
   await expect(page.getByText('wafer.csv', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Upload' }).click();
@@ -125,12 +128,9 @@ Given('a wafer with several failing bins is loaded', async ({ page, scenarioStat
      yield is the signal that this row is the one just uploaded. */
   await page.getByRole('link', { name: 'Wafers', exact: true }).click();
   await page.waitForURL('**/wafers');
-  await expect(
-    page
-      .getByRole('row')
-      .filter({ hasText: '80.00%' })
-      .first(),
-  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('row').filter({ hasText: '80.00%' }).first()).toBeVisible({
+    timeout: 15_000,
+  });
 
   const cell = page.getByRole('row').nth(1).getByRole('cell').first();
   const sequence = Number(await cell.textContent());
@@ -147,7 +147,7 @@ function waferSequence(scenarioState: Map<string, unknown>): string {
 
 When('the QA user opens the bin pareto screen', async ({ page }) => {
   await page.goto('/reports/bin-pareto');
-  await expect(page.getByRole('heading', { name: 'Bin pareto', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Bin Pareto', level: 1 })).toBeVisible();
 });
 
 Then('the {string} button is not offered', async ({ page }, label: string) => {
