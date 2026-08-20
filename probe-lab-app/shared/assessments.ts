@@ -32,7 +32,7 @@ export const EFFORT_POINTS: Record<AssessmentEffort, number> = {
   starter: 10,
   core: 20,
   advanced: 35,
-  expert: 60,
+  expert: 95,
 };
 
 /** Rough honest time expectation, shown so people can plan a session. */
@@ -618,10 +618,12 @@ export const assessmentCatalogue: Assessment[] = [
       '/yw:gate-merge',
     ],
     mission:
-      'Take a feature someone else built — a dev capstone, or the bin pareto CSV export — through the whole QA track: spec analysis, cases, a recorded gate approval, recon, UI automation, an API test, a security case, a visual pin where a chart is involved, a mutation audit, a three-run streak, and the merge-gate digest. Every stage leaves its artifact.',
+      'Take a feature someone else built — a dev capstone, or the bin pareto CSV export — through the whole QA track: spec analysis, cases, a recorded gate approval, recon, UI automation, an API test, a security case, a visual pin where a chart is involved, a mutation audit, and a three-run streak. Then run the whole suite under local CI (npm run jenkins:up, then jenkins:run) and read the Allure report it produces (npm run allure:open), before assembling the merge-gate digest. Every stage leaves its artifact.',
     passWhen: [
       'Every stage artifact exists and the ledger tells the true story',
       'Coverage spans UI, API, and at least one security case',
+      'The suite runs green through the local Jenkins job (probe-lab-e2e)',
+      'The Allure report is generated and its categories read correctly',
       'At least one real finding routed to bug-report or the dev track',
       'Automation passed the mutation audit; the merge digest is complete',
     ],

@@ -1,0 +1,23 @@
+# Local Jenkins controller for the PROBE Lab. `npm run jenkins:up` builds and
+# starts it; the job runs the whole pipeline in-container.
+#
+#   npm run jenkins:up      # build + start (first build is slow: image + browsers)
+#   npm run jenkins:run     # trigger a build and stream its console
+#   npm run jenkins:logs    # follow the controller log
+#   npm run jenkins:down    # stop and remove
+services:
+  jenkins:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - JENKINS_ADMIN_USER=${JENKINS_ADMIN_USER:-admin}
+      - JENKINS_ADMIN_PASSWORD=${JENKINS_ADMIN_PASSWORD:-admin}
+      - CASC_JENKINS_CONFIG=/var/jenkins_conf/casc.yaml
+    volumes:
+      - ./casc.yaml:/var/jenkins_conf/casc.yaml:ro
+      # The repo working tree, read-only — the pipeline rsyncs it into the job
+      # workspace, so a build reflects local changes without a git push.
+      - ../../:/workspace-src:ro

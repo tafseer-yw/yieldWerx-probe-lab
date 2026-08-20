@@ -127,6 +127,22 @@ on their own:
   `security:baseline` drive osv-scanner, semgrep, and ZAP in Docker, the
   baseline fail-closed without an explicit local target and authorization.
 
+## Reports and local CI
+
+- **Allure** — `allure-playwright` writes `reports/allure-results` on every run;
+  `npm run allure:generate` builds the report, `allure:open` / `allure:serve`
+  view it, `allure:report` does both. `environmentInfo` makes each report
+  self-describing and `src/reporting/allureCategories.ts` classifies a red run
+  into legible buckets (wrong-data blocker, visual drift, testId break, timeout,
+  untriaged defect, infra).
+- **Local Jenkins** (`ci/local/`) — a self-contained controller in Docker,
+  configured entirely by JCasC (`casc.yaml`), with one job `probe-lab-e2e` that
+  runs the whole pipeline (install → lint → typecheck → bddgen → test) and
+  publishes Allure. `npm run jenkins:up` builds and starts it, `jenkins:run`
+  triggers a build and streams its console, `jenkins:logs` / `jenkins:down`
+  manage it. The job builds the mounted working tree (uncommitted changes
+  included), so a green Jenkins build is the same evidence as a green local run.
+
 ## Rules
 
 - **Wrong business data is always `blocker`.** A calculation that produces
